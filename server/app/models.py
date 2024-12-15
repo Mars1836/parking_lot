@@ -15,3 +15,11 @@ class Vehicle:
             "exitTime": None,
             "imageSrc": "/static/images/455-300x300.jpg",
         }
+    @staticmethod
+    def build(image,license_plate):
+        return {
+            "licensePlate": license_plate,
+            "entryTime": datetime.now().isoformat(),
+            "exitTime": None,
+            "imageSrc": image,
+        }

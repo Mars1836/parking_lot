@@ -4,7 +4,7 @@ from .service.vehicle import VehicleService, set_door_status, get_door_status
 from .models import Vehicle
 from .state.init import state
 import os
-
+from .utils.index import store_image
 routes = Blueprint('main', __name__)
 @routes.route('/test-connection', methods=['GET'])
 def test_connection():
@@ -77,6 +77,7 @@ def toggle_door2():
 @routes.route('/upload', methods=['POST'])
 def upload_file():
     # Kiểm tra xem có file trong request không
+    db = current_app.config['DB']
     if 'image' not in request.files:
         return jsonify({"error": "No file part"}), 400
     
@@ -85,10 +86,30 @@ def upload_file():
     # Kiểm tra file có tên không
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
-
+    
     # Lưu file vào thư mục static/uploads
     save_path = os.path.join(current_app.config['IMAGE_FOLDER'], file.filename)
     file.save(save_path)
-
+    licensePlate = request.form.get('licensePlate')
+    status = request.form.get('status')
+    VehicleService.set_image_src_last_scan(db,save_path,licensePlate,status)
     # Trả về đường dẫn file đã lưu
     return jsonify({"message": "File uploaded successfully", "path": save_path}), 200
+@routes.route('/vehicle/handle', methods=['POST'])
+def handle_vehicle():
+    db = current_app.config['DB']
+    # Kiểm tra file trong request
+    if 'image' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['image']
+    licensePlate = request.form.get('licensePlate')
+    status = request.form.get('status')
+    # Kiểm tra file có tên không
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    save_path = store_image(file,licensePlate)
+    vehicle = Vehicle.build(save_path,licensePlate)
+    VehicleService.handle_vehicle(db,vehicle,status )
+    return jsonify({"message": "Vehicle handled successfully"}), 200
+

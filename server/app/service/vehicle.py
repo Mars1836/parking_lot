@@ -13,18 +13,21 @@ def set_image_src_last_scan(db,image_src,license_plate):
         return False
 
 def set_vehicle_last_action(db, vehicle_data, action):
-    print("-----------------------------------------")
-    print(vehicle_data)
-    print(action)
-    print("-----------------------------------------")
     try:
         db.child("vehicle_last_action").child("action").set(action)
         return db.child("vehicle_last_action").child("infor").set(vehicle_data)
     except Exception as e:
         print(f"Vehicle data retrieval error: {e}")
         return None
-class VehicleService:
+def get_vehicle_action(db,vehicle_data,action):
+    try:
+        db.child("vehicles").child(vehicle_data["licensePlate"]).set(vehicle_data)
 
+        return db.child("vehicle_last_action").child("infor").set(vehicle_data)
+    except Exception as e:
+        print(f"Vehicle data retrieval error: {e}")
+        return None
+class VehicleService:
     @staticmethod
     def store_image(image_url, static_folder):
         try:
@@ -42,8 +45,6 @@ class VehicleService:
         except Exception as e:
             print(f"Image storage error: {e}")
             return None
-
-
     def add_new_vehicle(db,vehicle_data):
         try:
             vehicle_data = Vehicle.create()
@@ -88,3 +89,21 @@ class VehicleService:
         except Exception as e:
             print(f"Vehicle exit error: {e}")
             return False
+    @staticmethod   
+    def handle_vehicle_enter(db,vehicle_data):
+        try:
+            db.child("vehicles").child(vehicle_data["licensePlate"]).set(vehicle_data)
+            set_vehicle_last_action(db,vehicle_data,"enter")
+            return True
+        except Exception as e:
+            print(f"Vehicle enter error: {e}")
+            return False
+    @staticmethod
+    def handle_vehicle(db,vehicle_data,action):
+        if(action == "enter"):
+            return VehicleService.handle_vehicle_enter(db,vehicle_data)
+        elif(action == "exit"):
+            return VehicleService.handle_vehicle_exit(db,vehicle_data["licensePlate"])
+        else:
+            return False
+     
