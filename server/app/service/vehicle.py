@@ -91,6 +91,7 @@ class VehicleService:
             return False
     @staticmethod   
     def handle_vehicle_enter(db,vehicle_data):
+        print("vehicle_data: ",vehicle_data)
         try:
             db.child("vehicles").child(vehicle_data["licensePlate"]).set(vehicle_data)
             set_vehicle_last_action(db,vehicle_data,"enter")

@@ -7,7 +7,7 @@ from .state.init import init_db
 def create_app():     
     # Tạo ứng dụng Flask
     app = Flask(__name__)
-    app.config['IMAGE_FOLDER'] = 'static/images'
+    app.config['IMAGE_FOLDER'] = 'app/static/images'
 
     # Cấu hình CORS
     CORS(app, resources={r"/*": {"origins": "*"}})      

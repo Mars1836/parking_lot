@@ -105,11 +105,13 @@ def handle_vehicle():
     file = request.files['image']
     licensePlate = request.form.get('licensePlate')
     status = request.form.get('status')
+
     # Kiểm tra file có tên không
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
     save_path = store_image(file,licensePlate)
     vehicle = Vehicle.build(save_path,licensePlate)
+    print("vehicle:     ",vehicle)
     VehicleService.handle_vehicle(db,vehicle,status )
     return jsonify({"message": "Vehicle handled successfully"}), 200
 
