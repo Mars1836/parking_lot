@@ -23,7 +23,7 @@ def create_app():
     # Khởi tạo Firebase
     firebase = pyrebase.initialize_app(firebase_config)
     app.config['DB'] = firebase.database()      
-    init_db(app.config['DB'])
+    # init_db(app.config['DB'])
     # Đảm bảo thư mục static tồn tại
     static_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
 
