@@ -110,6 +110,7 @@ def handle_vehicle():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
     save_path = store_image(file,licensePlate)
+    print(save_path)
     vehicle = Vehicle.build(save_path,licensePlate)
     print("vehicle:     ",vehicle)
     VehicleService.handle_vehicle(db,vehicle,status )
