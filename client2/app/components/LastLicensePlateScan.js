@@ -20,7 +20,7 @@ export default function LastLicensePlateScan({ imageSrc, licensePlate }) {
         {imageSrc ? (
           <div>
             <Image
-              src={`${SERVER_URL}/${imageSrc}`}
+              src={`${SERVER_URL}${imageSrc}`}
               width={700}
               height={300}
               className="object-contain"

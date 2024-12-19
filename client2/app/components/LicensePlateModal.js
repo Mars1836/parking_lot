@@ -24,7 +24,7 @@ export default function LicensePlateModal({ isOpen, onClose, vehicle }) {
             <div className="mb-6 rounded-lg overflow-hidden shadow-lg">
               {vehicle.imageSrc && (
                 <Image
-                  src={`${SERVER_URL}/${vehicle.imageSrc}`}
+                  src={`${SERVER_URL}${vehicle.imageSrc}`}
                   alt={`License plate ${vehicle.licensePlate}`}
                   width={400}
                   height={200}
