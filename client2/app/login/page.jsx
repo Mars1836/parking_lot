@@ -2,19 +2,27 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-
-export default function LoginPage({ onLogin }) {
+import instance from "../config/axios";
+import { endpoint } from "../api";
+import { useRouter } from "next/navigation";
+export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
-  const handleSubmit = (e) => {
+  const router = useRouter();
+  const handleSubmit = async (e) => {
     e.preventDefault();
     // Đây chỉ là một kiểm tra đơn giản, trong thực tế bạn sẽ muốn kết nối với một API backend
-    if (username === "admin" && password === "password") {
-      onLogin();
-    } else {
+    try {
+      const { data } = await instance.post(endpoint.auth.login(), {
+        username,
+        password,
+      });
+      localStorage.setItem("admin_car", JSON.stringify(data.user));
+      router.push("/");
+    } catch (e) {
       setError("Invalid username or password");
+      console.log(e);
     }
   };
 
@@ -72,8 +80,8 @@ export default function LoginPage({ onLogin }) {
             <motion.button
               type="submit"
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
               Sign in
             </motion.button>

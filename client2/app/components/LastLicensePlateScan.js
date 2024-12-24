@@ -18,13 +18,13 @@ export default function LastLicensePlateScan({ imageSrc, licensePlate }) {
         transition={{ duration: 0.5 }}
       >
         {imageSrc ? (
-          <div>
+          <div className="flex flex-col items-center justify-center">
             <Image
               src={`${SERVER_URL}${imageSrc}`}
               width={700}
               height={300}
-              className="object-contain"
-              alt="License Plate"
+              className="object-cover w-full"
+              alt="License Plate2"
             />
             <p className=" text-xl font-semibold mt-4">
               <span className="font-bold">License Plate:</span>

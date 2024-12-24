@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { fetchTongleDoor1, fetchTongleDoor2 } from "@/fetch";
-import { db, ref, onValue } from "../lib/firebase";
+import { db, ref, onValue, set } from "../lib/firebase";
 import { fetchSimulateAddVehicle } from "@/fetch";
 import Button from "@mui/material/Button";
 export default function DoorControls() {
@@ -9,7 +9,18 @@ export default function DoorControls() {
   const [door2Open, setDoor2Open] = useState(false);
   const [loadingDoor1, setLoadingDoor1] = useState(false);
   const [loadingDoor2, setLoadingDoor2] = useState(false);
+  const [checking, setChecking] = useState();
+  const [checkingLoading, setCheckingLoading] = useState(false);
+  async function handleChecking() {
+    setCheckingLoading(true);
+    await set(
+      ref(db, "status/checking"),
+      checking === "true" ? "false" : "true"
+    );
+    setCheckingLoading(false);
+  }
   useEffect(() => {
+    const statusCheckingRef = ref(db, "status/checking");
     const statusDoor1Ref = ref(db, "status/door1");
     const statusDoor2Ref = ref(db, "status/door2");
     const statusDoor1Sub = onValue(statusDoor1Ref, (snapshot) => {
@@ -26,9 +37,16 @@ export default function DoorControls() {
         setLoadingDoor2(false);
       }
     });
+    const statusCheckingSub = onValue(statusCheckingRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setChecking(data);
+      }
+    });
     return () => {
       statusDoor1Sub();
       statusDoor2Sub();
+      statusCheckingSub();
     };
   }, []);
   const handleToggleDoor1 = async () => {
@@ -54,7 +72,7 @@ export default function DoorControls() {
       <h2 className="text-3xl font-bold mb-6 text-gray-800">Door Controls</h2>
       <p className="text-gray-800 mb-4">Click to open or close the door</p>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-6 mb-4">
         <Button
           variant="contained"
           color={door1Open ? "primary" : "secondary"}
@@ -77,6 +95,15 @@ export default function DoorControls() {
       </div>
       <Button
         className="mt-4 bg-primary text-white px-4 py-2"
+        onClick={handleChecking}
+        variant="outlined"
+      >
+        Checking: {checkingLoading ? "Loading..." : checking}
+      </Button>
+      <Button
+        className=" bg-primary text-white px-4 py-2"
+        variant="outlined"
+        sx={{ marginLeft: 2 }}
         onClick={simulateAddVehicle}
       >
         Simulate Add Vehicle

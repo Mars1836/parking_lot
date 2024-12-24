@@ -9,7 +9,9 @@ import LicensePlateModal from "./components/LicensePlateModal";
 import ActionVehicleModal from "./components/ActionVehicleModal";
 import { db, ref, onValue } from "./lib/firebase";
 import AvailableSpaces from "./components/AvailableSpace";
-export default function ParkingManagement() {
+import ProtectRouter from "../wrapper/ProtectRouter";
+import { Header } from "./components/Header";
+function ParkingManagement() {
   const [vehicles, setVehicles] = useState([]);
   const [latestLicensePlateScan, setLatestLicensePlateScan] = useState(null);
   const [filter, setFilter] = useState("");
@@ -189,3 +191,11 @@ export default function ParkingManagement() {
     </div>
   );
 }
+const ProtectParkingManagement = function () {
+  return (
+    <ProtectRouter>
+      <ParkingManagement></ParkingManagement>
+    </ProtectRouter>
+  );
+};
+export default ProtectParkingManagement;

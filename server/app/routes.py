@@ -5,6 +5,8 @@ from .models import Vehicle
 from .state.init import state
 import os
 from .utils.index import store_image
+from werkzeug.security import generate_password_hash, check_password_hash
+from .models import UserDB
 routes = Blueprint('main', __name__)
 @routes.route('/test-connection', methods=['GET'])
 def test_connection():
@@ -19,19 +21,58 @@ def test_connection():
             "message": "Database connection failed"
         }), 500
 
-@routes.route('/vehicle/<license_plate>', methods=['POST'])
-def scan_vehicle_success_api(license_plate):
-    db = current_app.config['DB']
-    success = VehicleService.handle_vehicle_scan(db, license_plate)
-    
-    if success:
-        return jsonify({"message": "Vehicle scanned successfully"}), 200
-    else:
-        return jsonify({
-            "message": "Vehicle scanning failed", 
-            "error": "Internal processing error"
-        }), 500
+# API Tạo User (Signup)
+@routes.route('/signup', methods=['POST'])
+def signup():
+    sqldb = current_app.config['SQLDB']
+    data = request.json  # Lấy dữ liệu từ body request
+    name = data.get('name')
+    username = data.get('username')
+    password = data.get('password')
 
+    if not name or not username or not password:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Kiểm tra username đã tồn tại chưa
+    existing_user = UserDB.query.filter_by(username=username).first()
+    if existing_user:
+        return jsonify({"error": "Username already exists"}), 400
+
+    # Mã hóa mật khẩu trước khi lưu
+    hashed_password = generate_password_hash(password)
+
+    # Tạo user mới
+    new_user = UserDB(name=name, username=username, password=hashed_password)
+    sqldb.session.add(new_user)
+    sqldb.session.commit()
+
+    return jsonify({"message": "User created successfully!"}), 201
+@routes.route('/login', methods=['POST'])
+def login():
+    sqldb = current_app.config['SQLDB']
+    data = request.json  # Lấy dữ liệu từ body request
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Tìm user theo username
+    user = UserDB.query.filter_by(username=username).first()
+
+    if not user or not check_password_hash(user.password, password):
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    # Trả về thông báo đăng nhập thành công
+    return jsonify({
+        "message": "Login successful!",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "username": user.username,
+            "created_at": user.created_at
+        }
+    }), 200
 @routes.route('/vehicle', methods=['POST'])
 def simulate_add_vehicle():
     try:
