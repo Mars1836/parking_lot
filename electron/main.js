@@ -5,15 +5,14 @@ let win;
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1500,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: true, // Cho phép sử dụng Node.js trong renderer process
+    },
   });
 
-  // Đảm bảo Next.js chạy trên chế độ development hoặc production
-  win.loadURL("http://localhost:3000"); // Địa chỉ Next.js khi phát triển
-  win.webContents.openDevTools(); // cái này là cho phép bạn sử dụng devtool như browser để dùng cho debug thôi, không có gì đặc biệt
-
-  // win.loadFile(path.join(__dirname, 'out/index.html')); // Dùng khi deploy production
+  win.loadURL("http://localhost:4000");
 
   win.on("closed", () => {
     win = null;

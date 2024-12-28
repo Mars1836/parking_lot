@@ -10,7 +10,6 @@ import ActionVehicleModal from "./components/ActionVehicleModal";
 import { db, ref, onValue } from "./lib/firebase";
 import AvailableSpaces from "./components/AvailableSpace";
 import ProtectRouter from "../wrapper/ProtectRouter";
-import { Header } from "./components/Header";
 function ParkingManagement() {
   const [vehicles, setVehicles] = useState([]);
   const [latestLicensePlateScan, setLatestLicensePlateScan] = useState(null);

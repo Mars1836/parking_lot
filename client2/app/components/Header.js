@@ -7,18 +7,21 @@ export function Header() {
   const [user, setUser] = useState(null);
   const pathname = usePathname();
   const onLogout = () => {
-    localStorage.removeItem("admin_car");
-    window.location.href = "/login";
-  };
-  useEffect(() => {
-    console.log("Header");
-    try {
-      let userData = JSON.parse(localStorage.getItem("admin_car"));
-      setUser(userData);
-    } catch (e) {
+    if (typeof window !== "undefined") {
       localStorage.removeItem("admin_car");
       window.location.href = "/login";
-      console.log(e);
+    }
+  };
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        let userData = JSON.parse(localStorage.getItem("admin_car"));
+        setUser(userData);
+      } catch (e) {
+        localStorage.removeItem("admin_car");
+        window.location.href = "/login";
+        console.log(e);
+      }
     }
   }, [pathname]);
   return (

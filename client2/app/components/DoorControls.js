@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { fetchTongleDoor1, fetchTongleDoor2 } from "@/fetch";
 import { db, ref, onValue, set } from "../lib/firebase";
-import { fetchSimulateAddVehicle } from "@/fetch";
 import Button from "@mui/material/Button";
 export default function DoorControls() {
   const [door1Open, setDoor1Open] = useState(false);
@@ -57,16 +56,7 @@ export default function DoorControls() {
     setLoadingDoor2(true);
     await fetchTongleDoor2();
   };
-  const simulateAddVehicle = async () => {
-    const { data } = await fetchSimulateAddVehicle({
-      licensePlate: "ABC123",
-      entryTime: new Date(),
-      exitTime: null,
-      imageSrc: `/static/455-300x300.jpg`,
-      aiPredictedLicensePlate: "ABC123",
-    });
-    console.log(data);
-  };
+
   return (
     <div className="h-full">
       <h2 className="text-3xl font-bold mb-6 text-gray-800">Door Controls</h2>
@@ -99,14 +89,6 @@ export default function DoorControls() {
         variant="outlined"
       >
         Checking: {checkingLoading ? "Loading..." : checking}
-      </Button>
-      <Button
-        className=" bg-primary text-white px-4 py-2"
-        variant="outlined"
-        sx={{ marginLeft: 2 }}
-        onClick={simulateAddVehicle}
-      >
-        Simulate Add Vehicle
       </Button>
     </div>
   );
