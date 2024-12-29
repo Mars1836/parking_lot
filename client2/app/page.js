@@ -114,11 +114,7 @@ function ParkingManagement() {
         <div className="col-span-12 lg:col-span-4 lg:row-span-2 h-[700px]">
           <div className="bg-white shadow-lg rounded-lg p-6 h-full">
             {vehicleLastAction && (
-              <LicensePlateImage
-                imageSrc={vehicleLastAction.imageSrc}
-                licensePlate={vehicleLastAction.licensePlate}
-                action={vehicleLastAction.action}
-              />
+              <LicensePlateImage vehicle={vehicleLastAction} />
             )}
           </div>
         </div>

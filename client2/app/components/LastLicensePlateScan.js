@@ -1,13 +1,15 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useEffect } from "react";
 import { endpoint } from "../api";
 import { useServerUrl } from "../context/ServerUrlContext";
-export default function LastLicensePlateScan({ imageSrc, licensePlate }) {
+const actions = {
+  enter: "Vehicle Entered",
+  exit: "Vehicle Exited",
+  conflict: "Vehicle Mismatch",
+};
+export default function LastLicensePlateScan({ vehicle }) {
   const { serverUrl } = useServerUrl();
-  useEffect(() => {
-    console.log(imageSrc);
-  }, [imageSrc]);
+
   return (
     <div>
       <h2 className="text-3xl font-bold mb-6 text-gray-800">
@@ -19,10 +21,10 @@ export default function LastLicensePlateScan({ imageSrc, licensePlate }) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {imageSrc ? (
+        {vehicle?.imageSrc ? (
           <div className="flex flex-col items-center justify-center">
             <Image
-              src={endpoint.staticFile(serverUrl, imageSrc)}
+              src={endpoint.staticFile(serverUrl, vehicle?.imageSrc)}
               width={700}
               height={300}
               className="object-cover w-full max-h-[300px]"
@@ -30,7 +32,11 @@ export default function LastLicensePlateScan({ imageSrc, licensePlate }) {
             />
             <p className=" text-xl font-semibold mt-4">
               <span className="font-bold">License Plate:</span>
-              <span className="text-primary"> {licensePlate}</span>
+              <span className="text-primary"> {vehicle?.licensePlate}</span>
+            </p>
+            <p className=" text-xl font-semibold mt-4">
+              <span className="font-bold">Status:</span>
+              <span className="text-primary"> {actions[vehicle?.action]}</span>
             </p>
           </div>
         ) : (
