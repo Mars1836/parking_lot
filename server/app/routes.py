@@ -145,6 +145,7 @@ def handle_vehicle():
 
     file = request.files['image']
     licensePlate = request.form.get('licensePlate')
+    rfid = request.form.get('rfid')
     status = request.form.get('status')
 
     # Kiểm tra file có tên không
@@ -152,7 +153,7 @@ def handle_vehicle():
         return jsonify({"error": "No selected file"}), 400
     save_path = store_image(file,licensePlate)
     print(save_path)
-    vehicle = Vehicle.build(save_path,licensePlate)
+    vehicle = Vehicle.build(save_path,licensePlate,rfid)
     print("vehicle:     ",vehicle)
     VehicleService.handle_vehicle(db,vehicle,status )
     return jsonify({"message": "Vehicle handled successfully"}), 200

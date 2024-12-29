@@ -1,8 +1,10 @@
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { SERVER_URL } from "../const";
 import Button from "@mui/material/Button";
+import { endpoint } from "../api";
+import { useServerUrl } from "../context/ServerUrlContext";
 export default function LicensePlateModal({ isOpen, onClose, vehicle }) {
+  const { serverUrl } = useServerUrl();
   return (
     <AnimatePresence>
       {isOpen && vehicle && (
@@ -24,12 +26,12 @@ export default function LicensePlateModal({ isOpen, onClose, vehicle }) {
             <div className="mb-6 rounded-lg overflow-hidden shadow-lg">
               {vehicle.imageSrc && (
                 <Image
-                  src={`${SERVER_URL}${vehicle.imageSrc}`}
+                  src={endpoint.staticFile(serverUrl, vehicle.imageSrc)}
                   alt={`License plate ${vehicle.licensePlate}`}
                   width={400}
                   height={200}
                   layout="responsive"
-                  className="object-cover"
+                  className="object-cover max-h-[300px]"
                 />
               )}
             </div>

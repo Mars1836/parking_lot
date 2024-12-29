@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useEffect } from "react";
-import { SERVER_URL } from "../const";
+import { endpoint } from "../api";
+import { useServerUrl } from "../context/ServerUrlContext";
 export default function LastLicensePlateScan({ imageSrc, licensePlate }) {
+  const { serverUrl } = useServerUrl();
   useEffect(() => {
     console.log(imageSrc);
   }, [imageSrc]);
@@ -20,10 +22,10 @@ export default function LastLicensePlateScan({ imageSrc, licensePlate }) {
         {imageSrc ? (
           <div className="flex flex-col items-center justify-center">
             <Image
-              src={`${SERVER_URL}${imageSrc}`}
+              src={endpoint.staticFile(serverUrl, imageSrc)}
               width={700}
               height={300}
-              className="object-cover w-full"
+              className="object-cover w-full max-h-[300px]"
               alt="License Plate2"
             />
             <p className=" text-xl font-semibold mt-4">

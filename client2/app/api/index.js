@@ -1,9 +1,13 @@
-import { ORIGIN_URL } from "../const";
 const auth = {
-  login: () => {
-    return `${ORIGIN_URL}/login`;
+  login: (serverUrl) => {
+    return `${serverUrl}/login`;
   },
 };
+const staticFile = (serverUrl, path) => {
+  return `${serverUrl}/static${path}`;
+};
+
 export const endpoint = {
   auth,
+  staticFile,
 };

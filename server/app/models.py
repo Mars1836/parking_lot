@@ -25,12 +25,13 @@ class Vehicle:
             "imageSrc": "/static/images/455-300x300.jpg",
         }
     @staticmethod
-    def build(image,license_plate):
+    def build(image,license_plate,rfid):
         return {
             "licensePlate": license_plate,
             "entryTime": datetime.now().isoformat(),
             "exitTime": None,
             "imageSrc": image,
+            "rfid": rfid,
         }
 class User:
     def __init__(self, name, password):

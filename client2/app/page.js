@@ -12,7 +12,6 @@ import AvailableSpaces from "./components/AvailableSpace";
 import ProtectRouter from "../wrapper/ProtectRouter";
 function ParkingManagement() {
   const [vehicles, setVehicles] = useState([]);
-  const [latestLicensePlateScan, setLatestLicensePlateScan] = useState(null);
   const [filter, setFilter] = useState("");
   const [showOnlyParked, setShowOnlyParked] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -33,12 +32,7 @@ function ParkingManagement() {
         setVehicles(Object.values(snapshot.val()).reverse());
       }
     });
-    const lastScanRef = ref(db, "lastScan");
-    const lastScanSub = onValue(lastScanRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setLatestLicensePlateScan(snapshot.val() || null);
-      }
-    });
+
     const vehicleLastActionRef = ref(db, "vehicle_last_action");
     const vehicleLastActionSub = onValue(vehicleLastActionRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -49,7 +43,6 @@ function ParkingManagement() {
     });
     return () => {
       vehicleSub();
-      lastScanSub();
       vehicleLastActionSub();
     };
   }, []);
@@ -120,10 +113,11 @@ function ParkingManagement() {
         {/* Latest License Plate - Full width on mobile, side column on desktop */}
         <div className="col-span-12 lg:col-span-4 lg:row-span-2 h-[700px]">
           <div className="bg-white shadow-lg rounded-lg p-6 h-full">
-            {latestLicensePlateScan && (
+            {vehicleLastAction && (
               <LicensePlateImage
-                imageSrc={latestLicensePlateScan.imageSrc}
-                licensePlate={latestLicensePlateScan.licensePlate}
+                imageSrc={vehicleLastAction.imageSrc}
+                licensePlate={vehicleLastAction.licensePlate}
+                action={vehicleLastAction.action}
               />
             )}
           </div>

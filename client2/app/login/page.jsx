@@ -5,16 +5,18 @@ import { motion } from "framer-motion";
 import instance from "../config/axios";
 import { endpoint } from "../api";
 import { useRouter } from "next/navigation";
+import { useServerUrl } from "../context/ServerUrlContext";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
+  const { serverUrl } = useServerUrl();
   const handleSubmit = async (e) => {
     e.preventDefault();
     // Đây chỉ là một kiểm tra đơn giản, trong thực tế bạn sẽ muốn kết nối với một API backend
     try {
-      const { data } = await instance.post(endpoint.auth.login(), {
+      const { data } = await instance.post(endpoint.auth.login(serverUrl), {
         username,
         password,
       });
