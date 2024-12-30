@@ -102,7 +102,6 @@ class VehicleService:
     @staticmethod
     def handle_vehicle_conflict(db,vehicle_data):
         try:
-            db.child("vehicles").child(vehicle_data["licensePlate"]).set(vehicle_data)
             set_vehicle_last_action(db,vehicle_data,"conflict")
             return True
         except Exception as e:

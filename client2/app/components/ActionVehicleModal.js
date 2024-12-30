@@ -20,10 +20,14 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
   const { serverUrl } = useServerUrl();
   useEffect(() => {
     if (vehicle?.action === "conflict") {
-      const vehicleRef = ref(db, `vehicles/${vehicle.licensePlate}`);
+      const vehicleRef = ref(db, `vehicles`);
       const vehicleSub = onValue(vehicleRef, (snapshot) => {
         if (snapshot.exists()) {
-          setVehicleRegistered(snapshot.val());
+          const vehicles = Object.values(snapshot.val());
+          const vehicleRegistered = vehicles.find((v) => {
+            return v.rfid === vehicle.rfid && !v.exitTime;
+          });
+          setVehicleRegistered(vehicleRegistered);
         }
       });
       return () => {
@@ -151,14 +155,18 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
                     <strong className="text-primary">License Plate:</strong>{" "}
                     {vehicle.licensePlate}
                   </p>
-                  <p>
-                    <strong className="text-primary">Entry Time:</strong>{" "}
-                    {convertToDateTimeFormat(vehicle?.entryTime)}
-                  </p>
-                  <p>
-                    <strong className="text-primary">Exit Time:</strong>{" "}
-                    {convertToDateTimeFormat(vehicle?.exitTime)}
-                  </p>
+                  {vehicle.entryTime && (
+                    <p>
+                      <strong className="text-primary">Entry Time:</strong>{" "}
+                      {convertToDateTimeFormat(vehicle?.entryTime)}
+                    </p>
+                  )}
+                  {vehicle.exitTime && (
+                    <p>
+                      <strong className="text-primary">Exit Time:</strong>{" "}
+                      {convertToDateTimeFormat(vehicle?.exitTime)}
+                    </p>
+                  )}
                 </div>
                 <div className="flex-1">
                   <div className="mb-2 rounded-lg overflow-hidden shadow-lg">
