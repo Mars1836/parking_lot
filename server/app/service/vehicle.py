@@ -100,11 +100,22 @@ class VehicleService:
             print(f"Vehicle enter error: {e}")
             return False
     @staticmethod
+    def handle_vehicle_conflict(db,vehicle_data):
+        try:
+            db.child("vehicles").child(vehicle_data["licensePlate"]).set(vehicle_data)
+            set_vehicle_last_action(db,vehicle_data,"conflict")
+            return True
+        except Exception as e:
+            print(f"Vehicle conflict error: {e}")
+            return False
+    @staticmethod
     def handle_vehicle(db,vehicle_data,action):
         if(action == "enter"):
             return VehicleService.handle_vehicle_enter(db,vehicle_data)
         elif(action == "exit"):
             return VehicleService.handle_vehicle_exit(db,vehicle_data["licensePlate"])
+        elif(action == "conflict"):
+            return VehicleService.handle_vehicle_conflict(db,vehicle_data)
         else:
             return False
      
