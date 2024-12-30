@@ -12,7 +12,7 @@ function createWindow() {
     },
   });
 
-  win.loadURL("http://localhost:4000");
+  win.loadURL("https://parking-lot-xi.vercel.app");
 
   win.on("closed", () => {
     win = null;

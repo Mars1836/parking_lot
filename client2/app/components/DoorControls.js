@@ -69,7 +69,7 @@ export default function DoorControls() {
           className={`py-2 px-4  text-white font-semibold text-sm `}
           onClick={handleToggleDoor1}
         >
-          Door 1:{" "}
+          Gate 1:{" "}
           {loadingDoor1 ? "Loading..." : door1Open ? "is Open" : "is Closed"}
         </Button>
 
@@ -79,7 +79,7 @@ export default function DoorControls() {
           className={`py-2 px-4  text-white font-semibold text-sm `}
           onClick={handleToggleDoor2}
         >
-          Door 2:{" "}
+          Gate 2:{" "}
           {loadingDoor2 ? "Loading..." : door2Open ? "is Open" : "is Closed"}
         </Button>
       </div>
