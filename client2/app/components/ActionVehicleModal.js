@@ -155,18 +155,6 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
                     <strong className="text-primary">License Plate:</strong>{" "}
                     {vehicle.licensePlate}
                   </p>
-                  {vehicle.entryTime && (
-                    <p>
-                      <strong className="text-primary">Entry Time:</strong>{" "}
-                      {convertToDateTimeFormat(vehicle?.entryTime)}
-                    </p>
-                  )}
-                  {vehicle.exitTime && (
-                    <p>
-                      <strong className="text-primary">Exit Time:</strong>{" "}
-                      {convertToDateTimeFormat(vehicle?.exitTime)}
-                    </p>
-                  )}
                 </div>
                 <div className="flex-1">
                   <div className="mb-2 rounded-lg overflow-hidden shadow-lg">
