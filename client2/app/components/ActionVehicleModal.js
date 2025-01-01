@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { convertToDateTimeFormat } from "../../utils";
 import Button from "@mui/material/Button";
 import { convertToDurationFormat } from "../../utils";
-import { endpoint } from "../api";
-import { useServerUrl } from "../context/ServerUrlContext";
 import { useState, useEffect } from "react";
 import { db, ref, onValue } from "../lib/firebase";
+import { useServerUrl } from "../context/ServerUrlContext";
 export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
+  const { serverUrl } = useServerUrl();
   const [model, setModel] = useState(null);
   const [vehicleRegistered, setVehicleRegistered] = useState(null);
   function getDuration(entryTime, exitTime) {
@@ -17,7 +17,6 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
     return duration;
   }
 
-  const { serverUrl } = useServerUrl();
   useEffect(() => {
     if (vehicle?.action === "conflict") {
       const vehicleRef = ref(db, `vehicles`);
@@ -52,11 +51,10 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
             <div className="mb-6 rounded-lg overflow-hidden shadow-lg">
               {vehicle.imageSrc && (
                 <Image
-                  src={endpoint.staticFile(serverUrl, vehicle.imageSrc)}
+                  src={`/api/get-image?imageSrc=${vehicle.imageSrc}&serverUrl=${serverUrl}`}
                   alt={`License plate ${vehicle.licensePlate}`}
                   width={400}
                   height={200}
-                  layout="responsive"
                   className="object-cover max-h-[300px]"
                 />
               )}
@@ -89,11 +87,10 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
             <div className="mb-6 rounded-lg overflow-hidden shadow-lg">
               {vehicle.imageSrc && (
                 <Image
-                  src={endpoint.staticFile(serverUrl, vehicle.imageSrc)}
+                  src={`/api/get-image?imageSrc=${vehicle.imageSrc}&serverUrl=${serverUrl}`}
                   alt={`License plate ${vehicle.licensePlate}`}
                   width={500}
                   height={200}
-                  layout="responsive"
                   className="object-cover max-h-[300px]"
                 />
               )}
@@ -139,11 +136,10 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
                   <div className="mb-2 rounded-lg overflow-hidden shadow-lg">
                     {vehicle.imageSrc && (
                       <Image
-                        src={endpoint.staticFile(serverUrl, vehicle.imageSrc)}
+                        src={`/api/get-image?imageSrc=${vehicle.imageSrc}&serverUrl=${serverUrl}`}
                         alt={`License plate ${vehicle.licensePlate}`}
                         width={500}
                         height={200}
-                        layout="responsive"
                         className="object-cover max-h-[300px]"
                       />
                     )}
@@ -160,14 +156,10 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
                   <div className="mb-2 rounded-lg overflow-hidden shadow-lg">
                     {vehicle.imageSrc && (
                       <Image
-                        src={endpoint.staticFile(
-                          serverUrl,
-                          vehicleRegistered.imageSrc
-                        )}
+                        src={`/api/get-image?imageSrc=${vehicleRegistered.imageSrc}&serverUrl=${serverUrl}`}
                         alt={`License plate ${vehicleRegistered.licensePlate}`}
                         width={500}
                         height={200}
-                        layout="responsive"
                         className="object-cover max-h-[300px]"
                       />
                     )}
@@ -202,7 +194,7 @@ export default function ActionVehicleModal({ isOpen, onClose, vehicle }) {
       default:
         break;
     }
-  }, [vehicle, onClose, serverUrl, vehicleRegistered]);
+  }, [vehicle, onClose, vehicleRegistered]);
   return (
     <AnimatePresence>
       {isOpen && vehicle && (

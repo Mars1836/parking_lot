@@ -57,7 +57,7 @@ export default function VehicleList({
           <tbody className="bg-white divide-y divide-gray-200">
             {vehicles.map((vehicle, index) => (
               <motion.tr
-                key={vehicle.id}
+                key={vehicle.entryTime}
                 className="hover:bg-gray-50"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
