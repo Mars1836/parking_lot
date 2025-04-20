@@ -13,7 +13,7 @@
   "scripts": {
        "serve": "npx serve@latest out -p 4000",
     "electron": "electron .",
-    "start": "concurrently \"npm run serve\" \"wait-on http://localhost:4000 && npm run electron\"",
+    "start": "electron .",
     "build": "electron-builder"
   },
   "build": {
