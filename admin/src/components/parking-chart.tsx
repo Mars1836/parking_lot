@@ -1,28 +1,114 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { useEffect, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { useServerUrl } from "@/app/context/ServerUrlContext";
+import { format } from "date-fns";
 
-// Mock data for the chart
-const generateData = () => {
-  const hours = []
-  for (let i = 0; i < 24; i++) {
-    const hour = i < 10 ? `0${i}:00` : `${i}:00`
-    hours.push({
-      hour,
-      entries: Math.floor(Math.random() * 20) + 5,
-      exits: Math.floor(Math.random() * 15) + 3,
-    })
-  }
-  return hours
+interface ParkingData {
+  hour: string;
+  entries: number;
+  exits: number;
 }
 
-export function ParkingChart() {
-  const [data, setData] = useState<any[]>([])
+interface ParkingChartProps {
+  timeRange: string;
+  onTimeRangeChange: (value: string) => void;
+}
+
+export function ParkingChart({
+  timeRange,
+  onTimeRangeChange,
+}: ParkingChartProps) {
+  const { serverUrl } = useServerUrl();
+  const [data, setData] = useState<ParkingData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setData(generateData())
-  }, [])
+    setLoading(true);
+    if (!serverUrl) {
+      return;
+    }
+    const interval = setInterval(() => {
+      fetchData();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [serverUrl, timeRange]);
+
+  const fetchData = async () => {
+    try {
+      const today = new Date();
+      let startDate = today;
+      let endDate = today;
+
+      switch (timeRange) {
+        case "week":
+          startDate = new Date(today.setDate(today.getDate() - 7));
+          break;
+        case "month":
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+          endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          break;
+        default: // day
+          startDate = today;
+          endDate = today;
+      }
+
+      const response = await fetch(
+        `${serverUrl}/api/stats/parking?start_date=${format(
+          startDate,
+          "yyyy-MM-dd"
+        )}&end_date=${format(endDate, "yyyy-MM-dd")}&time_range=${timeRange}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch parking stats");
+      }
+
+      const result = await response.json();
+
+      // Kiểm tra xem dữ liệu có thay đổi không
+      const hasChanged = JSON.stringify(result) !== JSON.stringify(data);
+      if (hasChanged) {
+        setData(result);
+        setError(null);
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch data";
+      if (errorMessage !== error) {
+        setError(errorMessage);
+        console.error("Error fetching parking stats:", err);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[300px] flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[300px] flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="h-[300px] w-full">
@@ -54,10 +140,20 @@ export function ParkingChart() {
             }}
             itemStyle={{ padding: 0 }}
           />
-          <Bar dataKey="entries" name="Entries" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="exits" name="Exits" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey="entries"
+            name="Entries"
+            fill="hsl(var(--primary))"
+            radius={[4, 4, 0, 0]}
+          />
+          <Bar
+            dataKey="exits"
+            name="Exits"
+            fill="hsl(var(--muted-foreground))"
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
-  )
+  );
 }

@@ -21,6 +21,7 @@ import { ParkingChart } from "@/components/parking-chart";
 import { RevenueChart } from "@/components/revenue-chart";
 import { usePathname } from "next/navigation";
 import { useServerUrl } from "@/app/context/ServerUrlContext";
+
 interface DashboardStats {
   current_vehicles: number;
   today_traffic: number;
@@ -43,14 +44,17 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const { serverUrl } = useServerUrl();
-  const [timeRange, setTimeRange] = useState("today");
+  const [parkingTimeRange, setParkingTimeRange] = useState("day");
+  const [revenueTimeRange, setRevenueTimeRange] = useState("day");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
+
   useEffect(() => {
     setLoading(true);
   }, [serverUrl]);
+
   useEffect(() => {
     if (pathname !== "/") {
       return;
@@ -62,7 +66,7 @@ export default function DashboardPage() {
       fetchDashboardData();
     }, 3000);
     return () => clearInterval(interval);
-  }, [pathname, timeRange, serverUrl]);
+  }, [pathname, serverUrl]);
 
   const fetchDashboardData = async () => {
     try {
@@ -236,43 +240,56 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>Parking Activity</CardTitle>
-            <CardDescription>Hourly vehicle entries and exits</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Parking Activity</CardTitle>
+              <CardDescription>
+                Hourly vehicle entries and exits
+              </CardDescription>
+            </div>
+            <Tabs
+              defaultValue="day"
+              value={parkingTimeRange}
+              onValueChange={setParkingTimeRange}
+            >
+              <TabsList className="grid grid-cols-2 h-8">
+                <TabsTrigger value="day">Day</TabsTrigger>
+                <TabsTrigger value="month">Month</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardHeader>
           <CardContent>
-            <ParkingChart />
+            <ParkingChart
+              timeRange={parkingTimeRange}
+              onTimeRangeChange={setParkingTimeRange}
+            />
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center">
-            <div className="grid gap-1">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
               <CardTitle>Revenue</CardTitle>
               <CardDescription>
                 Revenue breakdown by time period
               </CardDescription>
             </div>
             <Tabs
-              defaultValue="today"
-              className="ml-auto"
-              onValueChange={(value) => setTimeRange(value)}
+              defaultValue="day"
+              value={revenueTimeRange}
+              onValueChange={setRevenueTimeRange}
             >
-              <TabsList className="grid grid-cols-3 h-8">
-                <TabsTrigger value="today" className="text-xs">
-                  Today
-                </TabsTrigger>
-                <TabsTrigger value="week" className="text-xs">
-                  Week
-                </TabsTrigger>
-                <TabsTrigger value="month" className="text-xs">
-                  Month
-                </TabsTrigger>
+              <TabsList className="grid grid-cols-2 h-8">
+                <TabsTrigger value="day">Day</TabsTrigger>
+                <TabsTrigger value="month">Month</TabsTrigger>
               </TabsList>
             </Tabs>
           </CardHeader>
           <CardContent>
-            <RevenueChart timeRange={timeRange} />
+            <RevenueChart
+              timeRange={revenueTimeRange}
+              onTimeRangeChange={setRevenueTimeRange}
+            />
           </CardContent>
         </Card>
       </div>

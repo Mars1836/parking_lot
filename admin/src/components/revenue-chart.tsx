@@ -1,56 +1,113 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { useEffect, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { useServerUrl } from "@/app/context/ServerUrlContext";
+import { format, subDays, subWeeks, startOfMonth, endOfMonth } from "date-fns";
 
-// Mock data for the chart
-const generateDailyData = () => {
-  const hours = []
-  for (let i = 0; i < 24; i++) {
-    const hour = i < 10 ? `0${i}:00` : `${i}:00`
-    hours.push({
-      name: hour,
-      revenue: Math.floor(Math.random() * 300) + 50,
-    })
-  }
-  return hours
-}
-
-const generateWeeklyData = () => {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-  return days.map((day) => ({
-    name: day,
-    revenue: Math.floor(Math.random() * 2000) + 500,
-  }))
-}
-
-const generateMonthlyData = () => {
-  const data = []
-  for (let i = 1; i <= 30; i++) {
-    data.push({
-      name: `${i}`,
-      revenue: Math.floor(Math.random() * 3000) + 1000,
-    })
-  }
-  return data
+interface RevenueData {
+  name: string;
+  revenue: number;
 }
 
 interface RevenueChartProps {
-  timeRange: string
+  timeRange: string;
+  onTimeRangeChange: (value: string) => void;
 }
 
-export function RevenueChart({ timeRange }: RevenueChartProps) {
-  const [data, setData] = useState<any[]>([])
+export function RevenueChart({
+  timeRange,
+  onTimeRangeChange,
+}: RevenueChartProps) {
+  const { serverUrl } = useServerUrl();
+  const [data, setData] = useState<RevenueData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (timeRange === "today") {
-      setData(generateDailyData())
-    } else if (timeRange === "week") {
-      setData(generateWeeklyData())
-    } else {
-      setData(generateMonthlyData())
+    setLoading(true);
+    if (!serverUrl) {
+      return;
     }
-  }, [timeRange])
+    const interval = setInterval(() => {
+      fetchData();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [serverUrl, timeRange]);
+
+  const fetchData = async () => {
+    try {
+      const today = new Date();
+      let startDate = today;
+      let endDate = today;
+
+      switch (timeRange) {
+        case "week":
+          startDate = subWeeks(today, 1);
+          break;
+        case "month":
+          startDate = startOfMonth(today);
+          endDate = endOfMonth(today);
+          break;
+        default: // day
+          startDate = today;
+          endDate = today;
+      }
+
+      const response = await fetch(
+        `${serverUrl}/api/stats/revenue?start_date=${format(
+          startDate,
+          "yyyy-MM-dd"
+        )}&end_date=${format(endDate, "yyyy-MM-dd")}&time_range=${timeRange}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch revenue stats");
+      }
+
+      const result = await response.json();
+
+      // Kiểm tra xem dữ liệu có thay đổi không
+      const hasChanged = JSON.stringify(result) !== JSON.stringify(data);
+      if (hasChanged) {
+        setData(result);
+        setError(null);
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch data";
+      if (errorMessage !== error) {
+        setError(errorMessage);
+        console.error("Error fetching revenue stats:", err);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[300px] flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[300px] flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="h-[300px] w-full">
@@ -59,38 +116,37 @@ export function RevenueChart({ timeRange }: RevenueChartProps) {
           data={data}
           margin={{
             top: 5,
-            right: 5,
+            right: 30,
             left: 0,
             bottom: 5,
           }}
         >
-          <defs>
-            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-            </linearGradient>
-          </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-          <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+          <XAxis
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 12 }}
+          />
+          <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
           <Tooltip
-            formatter={(value: number) => [`$${value}`, "Revenue"]}
             contentStyle={{
               backgroundColor: "hsl(var(--background))",
               borderColor: "hsl(var(--border))",
               borderRadius: "6px",
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
             }}
+            itemStyle={{ padding: 0 }}
           />
           <Area
             type="monotone"
             dataKey="revenue"
             stroke="hsl(var(--primary))"
-            fillOpacity={1}
-            fill="url(#colorRevenue)"
+            fill="hsl(var(--primary))"
+            fillOpacity={0.1}
           />
         </AreaChart>
       </ResponsiveContainer>
     </div>
-  )
+  );
 }

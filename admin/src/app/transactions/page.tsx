@@ -125,29 +125,22 @@ export default function TransactionsPage() {
       const params = new URLSearchParams();
 
       // Xử lý thời gian theo timeRange
-      let startDate = new Date(date);
-      let endDate = new Date(date);
+
+      let startDate = date;
+      let endDate = date;
 
       switch (timeRange) {
         case "week":
-          // Lấy ngày đầu tuần (thứ 2)
-          const day = date.getDay();
-          const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
-          startDate = new Date(date.setDate(diff));
-          startDate.setHours(0, 0, 0, 0);
-
-          // Lấy ngày cuối tuần (chủ nhật)
-          endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + 6);
-          endDate.setHours(23, 59, 59, 999);
+          startDate = new Date(date.getDate() - 7);
+          endDate = date;
           break;
         case "month":
           startDate = new Date(date.getFullYear(), date.getMonth(), 1);
           endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
           break;
         default: // day
-          startDate.setHours(0, 0, 0, 0);
-          endDate.setHours(23, 59, 59, 999);
+          startDate = date;
+          endDate = date;
       }
 
       params.append("start_date", format(startDate, "yyyy-MM-dd"));

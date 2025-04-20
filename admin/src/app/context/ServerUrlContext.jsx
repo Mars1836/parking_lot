@@ -14,6 +14,7 @@ export function ServerUrlProvider({ children }) {
 
     const unsubscribe = onValue(serverUrlRef, (snapshot) => {
       const url = snapshot.val();
+
       setServerUrl(url);
       setLoading(false);
     });
