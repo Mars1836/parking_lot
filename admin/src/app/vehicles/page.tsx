@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
+import { useServerUrl } from "@/app/context/ServerUrlContext";
 interface Vehicle {
   id: string;
   plate_number: string;
@@ -54,17 +54,18 @@ export default function VehiclesPage() {
   const [parkingHistory, setParkingHistory] = useState<ParkingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const { serverUrl } = useServerUrl();
   useEffect(() => {
+    if (!serverUrl) {
+      return;
+    }
     fetchVehicles();
-  }, []);
+  }, [serverUrl]);
 
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        "http://localhost:5000/api/vehicles/summary"
-      );
+      const response = await fetch(`${serverUrl}/api/vehicles/summary`);
       if (!response.ok) throw new Error("Failed to fetch vehicles");
       const data = await response.json();
       setVehicles(data);
@@ -257,7 +258,6 @@ export default function VehiclesPage() {
                   <TableHead>Entry Time</TableHead>
                   <TableHead>Exit Time</TableHead>
                   <TableHead>Duration</TableHead>
-                  <TableHead>Fee</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ParkingChart } from "@/components/parking-chart";
 import { RevenueChart } from "@/components/revenue-chart";
 import { usePathname } from "next/navigation";
+import { useServerUrl } from "@/app/context/ServerUrlContext";
 interface DashboardStats {
   current_vehicles: number;
   today_traffic: number;
@@ -41,6 +42,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { serverUrl } = useServerUrl();
   const [timeRange, setTimeRange] = useState("today");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,23 +50,26 @@ export default function DashboardPage() {
   const pathname = usePathname();
   useEffect(() => {
     setLoading(true);
-  }, []);
+  }, [serverUrl]);
   useEffect(() => {
     if (pathname !== "/") {
+      return;
+    }
+    if (!serverUrl) {
       return;
     }
     const interval = setInterval(() => {
       fetchDashboardData();
     }, 3000);
     return () => clearInterval(interval);
-  }, [pathname, timeRange]);
+  }, [pathname, timeRange, serverUrl]);
 
   const fetchDashboardData = async () => {
     try {
       const [vehiclesRes, sessionsRes, transactionsRes] = await Promise.all([
-        fetch("http://localhost:5000/api/vehicles/summary"),
-        fetch("http://localhost:5000/parking-sessions"),
-        fetch("http://localhost:5000/transactions"),
+        fetch(`${serverUrl}/api/vehicles/summary`),
+        fetch(`${serverUrl}/parking-sessions`),
+        fetch(`${serverUrl}/transactions`),
       ]);
 
       if (!vehiclesRes.ok || !sessionsRes.ok || !transactionsRes.ok) {

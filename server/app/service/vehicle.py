@@ -9,6 +9,11 @@ from sqlalchemy import func
 import logging
 import sqlite3
 
+def sanitize_license_plate(plate: str) -> str:
+    """Sanitize license plate number for Firebase path compatibility."""
+    # Replace invalid characters with underscores
+    return plate.replace('.', '_').replace('/', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_')
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -74,17 +79,14 @@ def log_sqlite_data(vehicle_data, action):
         # Log vehicles table
         cursor.execute("SELECT * FROM vehicles")
         vehicles = cursor.fetchall()
-        logger.info(f"Current vehicles in SQLite: {vehicles}")
         
         # Log parking_sessions table
         cursor.execute("SELECT * FROM parking_sessions")
         sessions = cursor.fetchall()
-        logger.info(f"Current parking sessions in SQLite: {sessions}")
         
         # Log transactions table
         cursor.execute("SELECT * FROM transactions")
         transactions = cursor.fetchall()
-        logger.info(f"Current transactions in SQLite: {transactions}")
         
         conn.close()
     except Exception as e:
@@ -182,13 +184,11 @@ class VehicleService:
     def add_new_vehicle(db, vehicle_data):
         try:
             sqldb = current_app.config['SQLDB']
-            logger.info(f"Adding new vehicle {vehicle_data['licensePlate']}")
             
             # Create vehicle in SQL database
             vehicle = VehicleDB(plate_number=vehicle_data["licensePlate"])
             sqldb.session.add(vehicle)
             sqldb.session.commit()
-            logger.info(f"Created vehicle record for {vehicle_data['licensePlate']}")
 
             # Create parking session
             session = ParkingSession(
@@ -198,13 +198,11 @@ class VehicleService:
             )
             sqldb.session.add(session)
             sqldb.session.commit()
-            logger.info(f"Created parking session for {vehicle_data['licensePlate']}")
 
             # Update Firebase
             db.child("vehicles").child(vehicle_data["licensePlate"]).set(vehicle_data)
             set_image_src_last_scan(db, vehicle_data["imageSrc"], vehicle_data["licensePlate"])
             set_vehicle_last_action(db, vehicle_data, "enter")
-            logger.info(f"Successfully added new vehicle {vehicle_data['licensePlate']} to both databases")
             return True
         except Exception as e:
             logger.error(f"Failed to add new vehicle {vehicle_data['licensePlate']}: {str(e)}")
@@ -267,15 +265,11 @@ class VehicleService:
     @staticmethod
     def handle_vehicle(db, vehicle_data, action):
         try:
-            sqldb = current_app.config['SQLDB']
-            logger.info(f"Processing {action} for vehicle {vehicle_data['licensePlate']}")
-            
+            sqldb = current_app.config['SQLDB']            
             # Log current state before changes
             log_sqlite_data(vehicle_data, action)
             
-            # Sanitize license plate for Firebase
-            safe_license_plate = vehicle_data["licensePlate"].replace(".", "_").replace("-", "_")
-            
+          
             if action == "enter":
                 try:
                     # SQLite operations
@@ -284,7 +278,6 @@ class VehicleService:
                         vehicle = VehicleDB(plate_number=vehicle_data["licensePlate"])
                         sqldb.session.add(vehicle)
                         sqldb.session.commit()
-                        logger.info(f"Created new vehicle record for {vehicle_data['licensePlate']}")
 
                     session = ParkingSession(
                         vehicle_id=vehicle.id,
@@ -294,7 +287,6 @@ class VehicleService:
                     )
                     sqldb.session.add(session)
                     sqldb.session.commit()
-                    logger.info(f"Created new parking session for vehicle {vehicle_data['licensePlate']}")
 
                     VehicleService.handle_vehicle_enter(db,vehicle_data)        
                     log_sqlite_data(vehicle_data, action)
@@ -320,7 +312,13 @@ class VehicleService:
 
                     if active_session:
                         active_session.checkout_time = datetime.utcnow()
-                        fee = 1.00
+                        
+                        # Get price from Firebase
+                        price_data = db.child("price").get()
+                        fee = 1.0  # Default fee
+                        if price_data.val() is not None:
+                            fee = float(price_data.val())
+                            
                         active_session.fee = fee
 
                         transaction = Transaction(
@@ -333,7 +331,7 @@ class VehicleService:
                         sqldb.session.commit()
                         logger.info(f"Created transaction for vehicle {vehicle_data['licensePlate']} with fee ${fee}")
 
-                    VehicleService.handle_vehicle_exit(db,vehicle_data)
+                    VehicleService.handle_vehicle_exit(db,vehicle_data["licensePlate"])
                     log_sqlite_data(vehicle_data, action)
                     return True
                     
@@ -356,4 +354,72 @@ class VehicleService:
             logger.error(f"Error processing vehicle {vehicle_data['licensePlate']}: {str(e)}")
             sqldb.session.rollback()
             return False
+
+    @staticmethod
+    def sync_vehicles_to_firebase(db):
+        """
+        Synchronize vehicles from SQLite to Firebase.
+        Only sync vehicles that are currently parked and have sessions from today.
+        Clears existing Firebase data before syncing.
+        Returns a dictionary with sync results.
+        """
+        try:
+            sqldb = current_app.config['SQLDB']
+            sync_results = {
+                'synced_vehicles': 0,
+                'errors': []
+            }
+
+            # Clear existing Firebase data
+            try:
+                db.child("vehicles").remove()
+                logger.info("Cleared existing Firebase vehicles data")
+            except Exception as e:
+                logger.error(f"Error clearing Firebase data: {str(e)}")
+                sync_results['errors'].append(f"Error clearing Firebase data: {str(e)}")
+                return sync_results
+
+            # Get today's date
+            today = datetime.utcnow().date()
+
+            # Get all active sessions from today
+            active_sessions = ParkingSession.query.filter(
+                ParkingSession.checkin_time >= today,
+                ParkingSession.checkout_time.is_(None)  # Only sessions that haven't checked out
+            ).all()
+
+            # Sync each vehicle to Firebase
+            for session in active_sessions:
+                try:
+                    vehicle = session.vehicle
+                    # Sanitize plate for Firebase path
+                    sanitized_plate = sanitize_license_plate(vehicle.plate_number)
+                    
+                    # Prepare vehicle data for Firebase
+                    vehicle_data = {
+                        'licensePlate': vehicle.plate_number,
+                        'entryTime': session.checkin_time.isoformat(),
+                        'imageSrc': session.image_src,
+                        'rfid': session.rfid_code
+                    }
+
+                    # Add to Firebase
+                    db.child("vehicles").child(sanitized_plate).set(vehicle_data)
+                    sync_results['synced_vehicles'] += 1
+                    logger.info(f"Synced vehicle {vehicle.plate_number} to Firebase")
+                except Exception as e:
+                    error_msg = f"Error syncing vehicle {vehicle.plate_number} to Firebase: {str(e)}"
+                    logger.error(error_msg)
+                    sync_results['errors'].append(error_msg)
+
+            logger.info(f"Sync completed: {sync_results}")
+            return sync_results
+
+        except Exception as e:
+            error_msg = f"Error during sync: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'synced_vehicles': 0,
+                'errors': [error_msg]
+            }
      

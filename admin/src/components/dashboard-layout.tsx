@@ -19,7 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-
+import { useServerUrl } from "@/app/context/ServerUrlContext";
 const navItems = [
   {
     title: "Dashboard",
@@ -47,6 +47,7 @@ const navItems = [
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { serverUrl } = useServerUrl();
 
   return (
     <div className="flex min-h-screen flex-col">

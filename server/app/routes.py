@@ -384,3 +384,98 @@ def export_vehicles():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@routes.route('/api/users', methods=['GET'])
+def get_users():
+    sqldb = current_app.config['SQLDB']
+    try:
+        users = sqldb.session.query(UserDB).all()
+        result = []
+        for u in users:
+            # Đảm bảo role là viết thường
+            role = u.role.lower() if u.role else 'security'
+            if role not in ['admin', 'security']:
+                role = 'security'  # Mặc định là security nếu role không hợp lệ
+            
+            result.append({
+                'id': f"U{u.id:03d}",
+                'name': u.name,
+                'username': u.username,
+                'role': role,
+                'status': 'active',
+                'created_at': u.created_at.strftime('%Y-%m-%d') if u.created_at else None
+            })
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/api/users', methods=['POST'])
+def create_user():
+    sqldb = current_app.config['SQLDB']
+    try:
+        data = request.json
+        name = data.get('name')
+        username = data.get('username')
+        password = data.get('password')
+        role = data.get('role', 'security')  # Mặc định là security (viết thường)
+
+        # Kiểm tra các trường bắt buộc
+        if not all([name, username, password]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # Kiểm tra username đã tồn tại chưa
+        existing_user = sqldb.session.query(UserDB).filter_by(username=username).first()
+        if existing_user:
+            return jsonify({"error": "Username already exists"}), 400
+
+        # Đảm bảo role là viết thường
+        role = role.lower()
+        if role not in ['admin', 'security']:
+            return jsonify({"error": "Invalid role. Must be either 'admin' or 'security'"}), 400
+
+        # Tạo user mới
+        new_user = UserDB(
+            name=name,
+            username=username,
+            password=generate_password_hash(password),
+            role=role
+        )
+        sqldb.session.add(new_user)
+        sqldb.session.commit()
+
+        return jsonify({
+            "message": "User created successfully",
+            "user": {
+                'id': f"U{new_user.id:03d}",
+                'name': new_user.name,
+                'username': new_user.username,
+                'role': new_user.role,
+                'status': 'active',
+                'created_at': new_user.created_at.strftime('%Y-%m-%d') if new_user.created_at else None
+            }
+        }), 201
+
+    except Exception as e:
+        sqldb.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/api/price', methods=['POST'])
+def update_price():
+    try:
+        db = current_app.config['DB']
+        data = request.json
+        price = data.get('price')
+        
+        if price is None:
+            return jsonify({"error": "Price is required"}), 400
+            
+        # Update price in Firebase
+        db.child("price").set(price)
+        
+        return jsonify({
+            "message": "Price updated successfully",
+            "price": price
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+

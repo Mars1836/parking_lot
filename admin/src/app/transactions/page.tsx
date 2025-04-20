@@ -1,6 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { CalendarIcon, CreditCard, Download } from "lucide-react";
+import {
+  CalendarIcon,
+  CreditCard,
+  Download,
+  Save,
+  Settings,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,7 +32,19 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-
+import { useServerUrl } from "@/app/context/ServerUrlContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { db, onValue, ref } from "@/app/lib/firebase";
 interface Transaction {
   id: number;
   session_id: number;
@@ -37,7 +55,7 @@ interface Transaction {
 }
 
 export default function TransactionsPage() {
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const { serverUrl } = useServerUrl();
   const [timeRange, setTimeRange] = useState("day");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,34 +65,89 @@ export default function TransactionsPage() {
     card: 0,
     "e-wallet": 0,
   });
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [flatFees, setFlatFees] = useState(0);
 
   useEffect(() => {
+    if (!serverUrl) {
+      return;
+    }
     if (date) {
       fetchTransactions(date, timeRange);
     }
-  }, [date, timeRange]);
+
+    // Listen for price changes in Firebase
+    const priceRef = ref(db, "price");
+    const priceSub = onValue(priceRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const price = snapshot.val();
+        console.log("Price updated:", price);
+        setFlatFees(price);
+      }
+    });
+    return () => {
+      priceSub();
+    };
+  }, [date, timeRange, serverUrl]);
+
+  const handleFlatFeeChange = (value: string) => {
+    setFlatFees(parseFloat(value));
+  };
+
+  const handleSaveFlatFees = async () => {
+    try {
+      const response = await fetch(`${serverUrl}/api/price`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ price: flatFees }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update price");
+      }
+
+      const data = await response.json();
+      console.log("Price updated via API:", data);
+      setIsDialogOpen(false);
+    } catch (err) {
+      console.error("Error updating price:", err);
+      setError(err instanceof Error ? err.message : "Failed to update price");
+    }
+  };
 
   const fetchTransactions = async (date: Date, timeRange: string) => {
     try {
       setLoading(true);
-      let url = "http://localhost:5000/transactions";
+      let url = `${serverUrl}/transactions`;
       const params = new URLSearchParams();
 
       // Xử lý thời gian theo timeRange
-      let startDate = date;
-      let endDate = date;
+      let startDate = new Date(date);
+      let endDate = new Date(date);
 
       switch (timeRange) {
         case "week":
-          startDate = new Date(date.setDate(date.getDate() - 7));
+          // Lấy ngày đầu tuần (thứ 2)
+          const day = date.getDay();
+          const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+          startDate = new Date(date.setDate(diff));
+          startDate.setHours(0, 0, 0, 0);
+
+          // Lấy ngày cuối tuần (chủ nhật)
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case "month":
           startDate = new Date(date.getFullYear(), date.getMonth(), 1);
           endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
           break;
         default: // day
-          startDate = date;
-          endDate = date;
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
       }
 
       params.append("start_date", format(startDate, "yyyy-MM-dd"));
@@ -130,7 +203,7 @@ export default function TransactionsPage() {
 
   const handleExport = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/vehicles/export");
+      const response = await fetch(`${serverUrl}/api/vehicles/export`);
       if (!response.ok) {
         throw new Error("Failed to export data");
       }
@@ -297,11 +370,61 @@ export default function TransactionsPage() {
               </PopoverContent>
             </Popover>
           </div>
-
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <div className="flex items-center gap-2">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Adjust Flat Fees
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Flat Fee Settings</DialogTitle>
+                  <DialogDescription>
+                    Set fixed parking fees per session (regardless of duration)
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="flat-fee">Flat Fee ($)</Label>
+                      <Input
+                        id="flat-fee"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={flatFees}
+                        onChange={(e) => handleFlatFeeChange(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Fixed fee per parking session
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    These fees will be applied to all new parking sessions.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveFlatFees}>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Fees
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </div>
         </div>
 
         <Card>

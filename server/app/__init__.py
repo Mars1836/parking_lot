@@ -6,6 +6,19 @@ import os
 from .models import db
 from flask_migrate import Migrate
 from .config import Config
+from .service.vehicle import VehicleService
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('parking.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 migrate = Migrate()
 
@@ -56,5 +69,14 @@ def create_app():
     # Đảm bảo thư mục static tồn tại
     static_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'images')
     os.makedirs(app.config['IMAGE_FOLDER'], exist_ok=True)
+
+    # Sync vehicles to Firebase
+    with app.app_context():
+        try:
+            logger.info("Starting initial sync to Firebase...")
+            results = VehicleService.sync_vehicles_to_firebase(app.config['DB'])
+            logger.info(f"Initial sync completed: {results}")
+        except Exception as e:
+            logger.error(f"Failed to sync to Firebase: {str(e)}")
 
     return app                  
