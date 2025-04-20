@@ -19,7 +19,7 @@ function ParkingManagement() {
   const [actionVehicleModalOpen, setActionVehicleModalOpen] = useState(false);
   const [vehicleLastAction, setVehicleLastAction] = useState(null);
   const [availableSpaces, setAvailableSpaces] = useState(100);
-  const totalSpaces = 100;
+  const totalSpaces = 20;
   const [sortConfig, setSortConfig] = useState({
     key: null,
     direction: "ascending",

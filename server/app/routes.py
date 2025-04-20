@@ -1,12 +1,15 @@
 from flask import request, jsonify, current_app, Blueprint, send_from_directory
 from . import create_app
 from .service.vehicle import VehicleService, set_door_status, get_door_status
-from .models import Vehicle
+from .models import Vehicle, VehicleDB, ParkingSession, Transaction
 from .state.init import state
 import os
 from .utils.index import store_image
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import UserDB
+from datetime import datetime, timedelta
+from sqlalchemy import func
+
 routes = Blueprint('main', __name__)
 @routes.route('/test-connection', methods=['GET'])
 def test_connection():
@@ -70,6 +73,7 @@ def login():
             "id": user.id,
             "name": user.name,
             "username": user.username,
+            "role": user.role,
             "created_at": user.created_at
         }
     }), 200
@@ -157,4 +161,226 @@ def handle_vehicle():
     print("vehicle:     ",vehicle)
     VehicleService.handle_vehicle(db,vehicle,status )
     return jsonify({"message": "Vehicle handled successfully"}), 200
+
+@routes.route('/vehicles', methods=['GET'])
+def get_vehicles():
+    sqldb = current_app.config['SQLDB']
+    try:
+        vehicles = VehicleDB.query.all()
+        result = [{
+            'id': v.id,
+            'plate_number': v.plate_number,
+            'total_visits': len(v.parking_sessions),
+            'last_visit': max([s.checkin_time for s in v.parking_sessions]) if v.parking_sessions else None
+        } for v in vehicles]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/parking-sessions', methods=['GET'])
+def get_parking_sessions():
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Get query parameters
+        vehicle_id = request.args.get('vehicle_id')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Build query
+        query = ParkingSession.query.join(VehicleDB)
+        
+        if vehicle_id:
+            query = query.filter_by(vehicle_id=vehicle_id)
+        
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+                query = query.filter(ParkingSession.checkin_time >= start_date)
+            except ValueError:
+                return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD"}), 400
+        
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+                query = query.filter(ParkingSession.checkin_time <= end_date)
+            except ValueError:
+                return jsonify({"error": "Invalid end_date format. Use YYYY-MM-DD"}), 400
+        
+        sessions = query.order_by(ParkingSession.checkin_time.desc()).all()
+        
+        result = []
+        for s in sessions:
+            try:
+                session_data = {
+                    'id': s.id,
+                    'vehicle_id': s.vehicle_id,
+                    'plate_number': s.vehicle.plate_number,
+                    'checkin_time': s.checkin_time.isoformat(),
+                    'checkout_time': s.checkout_time.isoformat() if s.checkout_time else None,
+                    'duration_hours': ((s.checkout_time - s.checkin_time).total_seconds() / 3600) if s.checkout_time else None,
+                    'rfid_code': s.rfid_code,
+                    'image_src': s.image_src
+                }
+                result.append(session_data)
+            except Exception as e:
+                print(f"Error processing session {s.id}: {str(e)}")
+                continue
+        
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"Error in get_parking_sessions: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/transactions', methods=['GET'])
+def get_transactions():
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Get query parameters
+        session_id = request.args.get('session_id')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        payment_method = request.args.get('payment_method')
+        
+        # Build query
+        query = Transaction.query.join(ParkingSession).join(VehicleDB)
+        
+        if session_id:
+            query = query.filter_by(session_id=session_id)
+        
+        if payment_method:
+            query = query.filter_by(payment_method=payment_method)
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(Transaction.paid_at >= start_date)
+        
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            # Thêm 1 ngày vào end_date để bao gồm cả ngày cuối
+            end_date = end_date + timedelta(days=1)
+            query = query.filter(Transaction.paid_at < end_date)
+        
+        transactions = query.order_by(Transaction.paid_at.desc()).all()
+        
+        result = [{
+            'id': t.id,
+            'session_id': t.session_id,
+            'plate_number': t.parking_session.vehicle.plate_number,
+            'amount': float(t.amount),
+            'payment_method': t.payment_method,
+            'paid_at': t.paid_at.isoformat()
+        } for t in transactions]
+        
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"Error in get_transactions: {str(e)}")  # Thêm log lỗi
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/api/vehicles/summary', methods=['GET'])
+def get_vehicles_summary():
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Get all vehicles with their active status
+        vehicles = VehicleDB.query.all()
+        result = []
+        
+        for v in vehicles:
+            # Get total parking count
+            total_visits = len(v.parking_sessions)
+            
+            # Get last session
+            last_session = ParkingSession.query.filter_by(vehicle_id=v.id)\
+                .order_by(ParkingSession.checkin_time.desc()).first()
+            
+            # Calculate time since last entry
+            time_since = None
+            if last_session:
+                time_diff = datetime.utcnow() - last_session.checkin_time
+                if time_diff.days > 0:
+                    time_since = f"{time_diff.days} days ago"
+                elif time_diff.seconds > 3600:
+                    time_since = f"{time_diff.seconds // 3600} hours ago"
+                else:
+                    time_since = f"{time_diff.seconds // 60} minutes ago"
+            
+            # Check if currently parked
+            status = "in" if last_session and not last_session.checkout_time else "out"
+            
+            result.append({
+                'id': f"V{v.id:03d}",
+                'plate_number': v.plate_number,
+                'parking_count': total_visits,
+                'last_entry': last_session.checkin_time.isoformat() if last_session else None,
+                'time_since': time_since,
+                'status': status
+            })
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/api/vehicles/<int:vehicle_id>/history', methods=['GET'])
+def get_vehicle_history(vehicle_id):
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Get all parking sessions for the vehicle
+        sessions = ParkingSession.query.filter_by(vehicle_id=vehicle_id)\
+            .order_by(ParkingSession.checkin_time.desc()).all()
+        
+        result = []
+        for s in sessions:
+            duration = None
+            if s.checkout_time:
+                duration_hours = (s.checkout_time - s.checkin_time).total_seconds() / 3600
+                duration = f"{duration_hours:.1f} hours"
+            
+            result.append({
+                'id': f"PS{vehicle_id:03d}{s.id}",
+                'entry_time': s.checkin_time.isoformat(),
+                'exit_time': s.checkout_time.isoformat() if s.checkout_time else None,
+                'duration': duration or "Current session",
+            })
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/api/vehicles/export', methods=['GET'])
+def export_vehicles():
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Get all vehicles with their sessions
+        vehicles = VehicleDB.query.all()
+        result = []
+        
+        for v in vehicles:
+            vehicle_data = {
+                'id': v.id,
+                'plate_number': v.plate_number,
+                'total_visits': len(v.parking_sessions),
+                'sessions': []
+            }
+            
+            for s in v.parking_sessions:
+                session_data = {
+                    'checkin_time': s.checkin_time.isoformat(),
+                    'checkout_time': s.checkout_time.isoformat() if s.checkout_time else None,
+                    'fee': float(s.fee) if s.fee else None,
+                    'transactions': []
+                }
+                
+                for t in s.transactions:
+                    session_data['transactions'].append({
+                        'amount': float(t.amount),
+                        'payment_method': t.payment_method,
+                        'paid_at': t.paid_at.isoformat()
+                    })
+                
+                vehicle_data['sessions'].append(session_data)
+            
+            result.append(vehicle_data)
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
