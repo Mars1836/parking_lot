@@ -479,3 +479,175 @@ def update_price():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@routes.route('/api/stats/parking', methods=['GET'])
+def get_parking_stats():
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        time_range = request.args.get('time_range', 'day')  # day, week, month
+        
+        # Build query
+        query = ParkingSession.query
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(ParkingSession.checkin_time >= start_date)
+        
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            end_date = end_date + timedelta(days=1)
+            query = query.filter(ParkingSession.checkin_time < end_date)
+        
+        result = []
+        
+        if time_range == 'day':
+            # Group by hour
+            for hour in range(24):
+                hour_start = start_date.replace(hour=hour, minute=0, second=0, microsecond=0)
+                hour_end = hour_start + timedelta(hours=1)
+                
+                entries = query.filter(
+                    ParkingSession.checkin_time >= hour_start,
+                    ParkingSession.checkin_time < hour_end
+                ).count()
+                
+                exits = query.filter(
+                    ParkingSession.checkout_time >= hour_start,
+                    ParkingSession.checkout_time < hour_end
+                ).count()
+                
+                result.append({
+                    'hour': f"{hour:02d}:00",
+                    'entries': entries,
+                    'exits': exits
+                })
+        
+        elif time_range == 'week':
+            # Group by day of week
+            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            for i, day in enumerate(days):
+                day_start = start_date + timedelta(days=i)
+                day_end = day_start + timedelta(days=1)
+                
+                entries = query.filter(
+                    ParkingSession.checkin_time >= day_start,
+                    ParkingSession.checkin_time < day_end
+                ).count()
+                
+                exits = query.filter(
+                    ParkingSession.checkout_time >= day_start,
+                    ParkingSession.checkout_time < day_end
+                ).count()
+                
+                result.append({
+                    'hour': day,
+                    'entries': entries,
+                    'exits': exits
+                })
+        
+        else:  # month
+            # Group by day of month
+            days_in_month = (end_date - start_date).days
+            for day in range(days_in_month):
+                day_start = start_date + timedelta(days=day)
+                day_end = day_start + timedelta(days=1)
+                
+                entries = query.filter(
+                    ParkingSession.checkin_time >= day_start,
+                    ParkingSession.checkin_time < day_end
+                ).count()
+                
+                exits = query.filter(
+                    ParkingSession.checkout_time >= day_start,
+                    ParkingSession.checkout_time < day_end
+                ).count()
+                
+                result.append({
+                    'hour': f"{day + 1}",
+                    'entries': entries,
+                    'exits': exits
+                })
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@routes.route('/api/stats/revenue', methods=['GET'])
+def get_revenue_stats():
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        time_range = request.args.get('time_range', 'day')  # day, week, month
+        
+        # Build query
+        query = Transaction.query
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(Transaction.paid_at >= start_date)
+        
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            end_date = end_date + timedelta(days=1)
+            query = query.filter(Transaction.paid_at < end_date)
+        
+        result = []
+        
+        if time_range == 'day':
+            # Group by hour
+            for hour in range(24):
+                hour_start = start_date.replace(hour=hour, minute=0, second=0, microsecond=0)
+                hour_end = hour_start + timedelta(hours=1)
+                
+                revenue = query.filter(
+                    Transaction.paid_at >= hour_start,
+                    Transaction.paid_at < hour_end
+                ).with_entities(func.sum(Transaction.amount)).scalar() or 0
+                
+                result.append({
+                    'name': f"{hour:02d}:00",
+                    'revenue': float(revenue)
+                })
+        
+        elif time_range == 'week':
+            # Group by day of week
+            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            for i, day in enumerate(days):
+                day_start = start_date + timedelta(days=i)
+                day_end = day_start + timedelta(days=1)
+                
+                revenue = query.filter(
+                    Transaction.paid_at >= day_start,
+                    Transaction.paid_at < day_end
+                ).with_entities(func.sum(Transaction.amount)).scalar() or 0
+                
+                result.append({
+                    'name': day,
+                    'revenue': float(revenue)
+                })
+        
+        else:  # month
+            # Group by day of month
+            days_in_month = (end_date - start_date).days
+            for day in range(days_in_month):
+                day_start = start_date + timedelta(days=day)
+                day_end = day_start + timedelta(days=1)
+                
+                revenue = query.filter(
+                    Transaction.paid_at >= day_start,
+                    Transaction.paid_at < day_end
+                ).with_entities(func.sum(Transaction.amount)).scalar() or 0
+                
+                result.append({
+                    'name': f"{day + 1}",
+                    'revenue': float(revenue)
+                })
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+

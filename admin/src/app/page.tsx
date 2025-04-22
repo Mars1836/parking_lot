@@ -70,21 +70,62 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
+      if (!serverUrl) {
+        throw new Error("Server URL is not configured");
+      }
+
       const [vehiclesRes, sessionsRes, transactionsRes] = await Promise.all([
-        fetch(`${serverUrl}/api/vehicles/summary`),
-        fetch(`${serverUrl}/parking-sessions`),
-        fetch(`${serverUrl}/transactions`),
+        fetch(`${serverUrl}/api/vehicles/summary`).catch((error) => {
+          throw new Error(`Failed to fetch vehicles: ${error.message}`);
+        }),
+        fetch(`${serverUrl}/parking-sessions`).catch((error) => {
+          throw new Error(`Failed to fetch parking sessions: ${error.message}`);
+        }),
+        fetch(`${serverUrl}/transactions`).catch((error) => {
+          throw new Error(`Failed to fetch transactions: ${error.message}`);
+        }),
       ]);
 
-      if (!vehiclesRes.ok || !sessionsRes.ok || !transactionsRes.ok) {
-        throw new Error("Failed to fetch dashboard data");
+      if (!vehiclesRes.ok) {
+        throw new Error(
+          `Vehicles API error: ${vehiclesRes.status} ${vehiclesRes.statusText}`
+        );
+      }
+      if (!sessionsRes.ok) {
+        throw new Error(
+          `Sessions API error: ${sessionsRes.status} ${sessionsRes.statusText}`
+        );
+      }
+      if (!transactionsRes.ok) {
+        throw new Error(
+          `Transactions API error: ${transactionsRes.status} ${transactionsRes.statusText}`
+        );
       }
 
       const [vehicles, sessions, transactions] = await Promise.all([
-        vehiclesRes.json(),
-        sessionsRes.json(),
-        transactionsRes.json(),
+        vehiclesRes.json().catch((error) => {
+          throw new Error(`Failed to parse vehicles data: ${error.message}`);
+        }),
+        sessionsRes.json().catch((error) => {
+          throw new Error(`Failed to parse sessions data: ${error.message}`);
+        }),
+        transactionsRes.json().catch((error) => {
+          throw new Error(
+            `Failed to parse transactions data: ${error.message}`
+          );
+        }),
       ]);
+
+      // Validate data structure
+      if (!Array.isArray(vehicles)) {
+        throw new Error("Invalid vehicles data format");
+      }
+      if (!Array.isArray(sessions)) {
+        throw new Error("Invalid sessions data format");
+      }
+      if (!Array.isArray(transactions)) {
+        throw new Error("Invalid transactions data format");
+      }
 
       // Calculate current vehicles (vehicles with active sessions)
       const currentVehicles = vehicles.filter(
@@ -94,20 +135,20 @@ export default function DashboardPage() {
       // Calculate today's traffic
       const today = new Date().toISOString().split("T")[0];
       const todayTraffic = sessions.filter((s: any) =>
-        s.checkin_time.startsWith(today)
+        s.checkin_time?.startsWith(today)
       ).length;
 
       // Calculate today's revenue
       const todayRevenue = transactions
-        .filter((t: any) => t.paid_at.startsWith(today))
-        .reduce((sum: number, t: any) => sum + t.amount, 0);
+        .filter((t: any) => t.paid_at?.startsWith(today))
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
 
       // Calculate average duration
       const completedSessions = sessions.filter((s: any) => s.duration_hours);
       const avgDuration =
         completedSessions.length > 0
           ? completedSessions.reduce(
-              (sum: number, s: any) => sum + s.duration_hours,
+              (sum: number, s: any) => sum + (s.duration_hours || 0),
               0
             ) / completedSessions.length
           : 0;
@@ -116,9 +157,9 @@ export default function DashboardPage() {
       const recentTransactions = transactions.slice(0, 4).map((t: any) => ({
         id: t.id,
         plate_number: t.plate_number,
-        amount: t.amount,
-        payment_method: t.payment_method,
-        paid_at: t.paid_at,
+        amount: t.amount || 0,
+        payment_method: t.payment_method || "Unknown",
+        paid_at: t.paid_at || new Date().toISOString(),
       }));
 
       // Get recent activity
@@ -126,7 +167,7 @@ export default function DashboardPage() {
         id: s.id,
         plate_number: s.plate_number,
         action: s.checkout_time ? "Exit" : "Entry",
-        time: s.checkout_time || s.checkin_time,
+        time: s.checkout_time || s.checkin_time || new Date().toISOString(),
       }));
 
       setStats({
@@ -139,8 +180,11 @@ export default function DashboardPage() {
       });
       setError(null);
     } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
       console.error("Error fetching dashboard data:", err);
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(errorMessage);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -149,7 +193,12 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p>Loading dashboard data...</p>
+        <div className="text-center">
+          <p className="text-lg font-medium">Loading dashboard data...</p>
+          <p className="text-sm text-muted-foreground">
+            Please wait while we fetch the latest information
+          </p>
+        </div>
       </div>
     );
   }
@@ -157,7 +206,22 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p className="text-red-500">Error: {error}</p>
+        <div className="text-center">
+          <p className="text-lg font-medium text-red-500">
+            Error Loading Dashboard
+          </p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <button
+            onClick={() => {
+              setLoading(true);
+              setError(null);
+              fetchDashboardData();
+            }}
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
