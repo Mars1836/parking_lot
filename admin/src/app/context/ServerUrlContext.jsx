@@ -10,7 +10,7 @@ export function ServerUrlProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const serverUrlRef = ref(db, "server/url1");
+    const serverUrlRef = ref(db, "server/url2");
 
     const unsubscribe = onValue(serverUrlRef, (snapshot) => {
       const url = snapshot.val();
