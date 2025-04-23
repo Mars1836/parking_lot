@@ -2,7 +2,14 @@
 
 import type React from "react";
 import { useState, useEffect } from "react";
-import { Car, Clock, Download, History, Search } from "lucide-react";
+import {
+  Car,
+  Clock,
+  Download,
+  History,
+  Search,
+  ArrowUpDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,7 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useServerUrl } from "@/app/context/ServerUrlContext";
-import { formatVietnamTime } from "@/app/lib/format";
+import { format, parseISO } from "date-fns";
 
 interface Vehicle {
   id: string;
@@ -48,6 +55,14 @@ interface ParkingSession {
   fee: string;
 }
 
+type SortField =
+  | "plate_number"
+  | "id"
+  | "parking_count"
+  | "last_entry"
+  | "status";
+type SortOrder = "asc" | "desc";
+
 export default function VehiclesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -56,6 +71,8 @@ export default function VehiclesPage() {
   const [parkingHistory, setParkingHistory] = useState<ParkingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>("plate_number");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const { serverUrl } = useServerUrl();
   useEffect(() => {
     if (!serverUrl) {
@@ -141,6 +158,53 @@ export default function VehiclesPage() {
     }
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortedVehicles = [...vehicles].sort((a, b) => {
+    const multiplier = sortOrder === "asc" ? 1 : -1;
+
+    switch (sortField) {
+      case "plate_number":
+        return multiplier * a.plate_number.localeCompare(b.plate_number);
+      case "id":
+        return multiplier * a.id.localeCompare(b.id);
+      case "parking_count":
+        return multiplier * (a.parking_count - b.parking_count);
+      case "last_entry":
+        if (!a.last_entry && !b.last_entry) return 0;
+        if (!a.last_entry) return 1;
+        if (!b.last_entry) return -1;
+        return (
+          multiplier * new Date(a.last_entry).getTime() -
+          new Date(b.last_entry).getTime()
+        );
+      case "status":
+        return (
+          multiplier * (a.status === "in" ? 1 : 0) - (b.status === "in" ? 1 : 0)
+        );
+      default:
+        return 0;
+    }
+  });
+
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return "—";
+    try {
+      const date = parseISO(dateString);
+      return format(date, "dd/MM/yyyy HH:mm:ss");
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return dateString;
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div className="text-red-500">Error: {error}</div>;
 
@@ -171,13 +235,6 @@ export default function VehiclesPage() {
             </div>
             <Button type="submit">Search</Button>
           </form>
-
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </div>
         </div>
 
         <Card>
@@ -194,15 +251,67 @@ export default function VehiclesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Plate Number</TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Parking Count</TableHead>
-                  <TableHead>Last Parked</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("plate_number")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Plate Number
+                      <ArrowUpDown className="h-4 w-4" />
+                      {sortField === "plate_number" && (
+                        <span className="text-xs text-muted-foreground">
+                          {sortOrder === "asc" ? "↑" : "↓"}
+                        </span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("id")}
+                  >
+                    <div className="flex items-center gap-1">
+                      ID
+                      <ArrowUpDown className="h-4 w-4" />
+                      {sortField === "id" && (
+                        <span className="text-xs text-muted-foreground">
+                          {sortOrder === "asc" ? "↑" : "↓"}
+                        </span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("parking_count")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Parking Count
+                      <ArrowUpDown className="h-4 w-4" />
+                      {sortField === "parking_count" && (
+                        <span className="text-xs text-muted-foreground">
+                          {sortOrder === "asc" ? "↑" : "↓"}
+                        </span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("last_entry")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Last Parked
+                      <ArrowUpDown className="h-4 w-4" />
+                      {sortField === "last_entry" && (
+                        <span className="text-xs text-muted-foreground">
+                          {sortOrder === "asc" ? "↑" : "↓"}
+                        </span>
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vehicles.map((vehicle) => (
+                {sortedVehicles.map((vehicle) => (
                   <TableRow key={vehicle.id}>
                     <TableCell className="font-medium">
                       {vehicle.plate_number}
@@ -260,18 +369,15 @@ export default function VehiclesPage() {
                   <TableHead>Entry Time</TableHead>
                   <TableHead>Exit Time</TableHead>
                   <TableHead>Duration</TableHead>
+                  <TableHead>Fee</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {parkingHistory.map((session) => (
                   <TableRow key={session.id}>
                     <TableCell className="font-medium">{session.id}</TableCell>
-                    <TableCell>
-                      {formatVietnamTime(session.entry_time)}
-                    </TableCell>
-                    <TableCell>
-                      {formatVietnamTime(session.exit_time!) || "—"}
-                    </TableCell>
+                    <TableCell>{formatDateTime(session.entry_time)}</TableCell>
+                    <TableCell>{formatDateTime(session.exit_time)}</TableCell>
                     <TableCell>{session.duration}</TableCell>
                     <TableCell>{session.fee}</TableCell>
                   </TableRow>

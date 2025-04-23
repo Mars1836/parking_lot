@@ -3,11 +3,19 @@ from werkzeug.utils import secure_filename
 import os
 from ..models import Vehicle, VehicleDB, ParkingSession, Transaction
 from datetime import datetime
+import pytz
 from .door import set_door_status, get_door_status
 from flask import current_app
 from sqlalchemy import func
 import logging
 import sqlite3
+
+# Define Vietnam timezone
+VIETNAM_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
+
+def get_vietnam_time():
+    """Get current time in Vietnam timezone"""
+    return datetime.now(VIETNAM_TZ)
 
 def sanitize_license_plate(plate: str) -> str:
     """Sanitize license plate number for Firebase path compatibility."""
@@ -131,7 +139,7 @@ class VehicleService:
 
             if active_session:
                 # Vehicle is exiting
-                active_session.checkout_time = datetime.utcnow()
+                active_session.checkout_time = get_vietnam_time()
                 
                 # Calculate fee based on time difference
                 time_diff = active_session.checkout_time - active_session.checkin_time
@@ -144,7 +152,7 @@ class VehicleService:
                     session_id=active_session.id,
                     amount=fee,
                     payment_method='cash',  # Default payment method
-                    paid_at=datetime.utcnow()
+                    paid_at=get_vietnam_time()
                 )
                 sqldb.session.add(transaction)
             else:
@@ -153,7 +161,7 @@ class VehicleService:
                     vehicle_id=vehicle.id,
                     rfid_code=rfid_code,
                     image_src=image_src,
-                    checkin_time=datetime.utcnow()
+                    checkin_time=get_vietnam_time()
                 )
                 sqldb.session.add(new_session)
 
@@ -164,7 +172,7 @@ class VehicleService:
             if vehicle_data.val():
                 # Vehicle is exiting
                 db.child("vehicles").child(license_plate).update({
-                    "exitTime": datetime.now().isoformat()
+                    "exitTime": get_vietnam_time().isoformat()
                 })
                 set_vehicle_last_action(db, vehicle_data, "exit")
             else:
@@ -193,7 +201,7 @@ class VehicleService:
             # Create parking session
             session = ParkingSession(
                 vehicle_id=vehicle.id,
-                checkin_time=datetime.utcnow(),
+                checkin_time=get_vietnam_time(),
                 image_src=vehicle_data["imageSrc"]
             )
             sqldb.session.add(session)
@@ -210,32 +218,10 @@ class VehicleService:
             return False
 
     @staticmethod
-    def handle_vehicle_scan(db, license_plate):
-        try:
-            vehicle_data = db.child("vehicles").child(license_plate).get()
-            
-            if vehicle_data.val():
-                # Vehicle is exiting
-                db.child("vehicles").child(license_plate).update({
-                    "exitTime": datetime.now().isoformat()
-                })
-                set_vehicle_last_action(db,vehicle_data,"exit")
-            else:
-                # Vehicle is entering
-                vehicle_data = Vehicle.create(license_plate)
-                db.child("vehicles").child(license_plate).set(vehicle_data)
-                set_image_src_last_scan(db,vehicle_data["imageSrc"],vehicle_data["licensePlate"])
-                set_vehicle_last_action(db,vehicle_data,"enter")
-            
-            return True
-        except Exception as e:
-            print(f"Vehicle scan error: {e}")
-            return False
-    @staticmethod
     def handle_vehicle_exit(db,license_plate):
         try:
             vehicle_data = db.child("vehicles").child(license_plate).get().val()
-            time_exit = datetime.now().isoformat()
+            time_exit = get_vietnam_time().isoformat()
             db.child("vehicles").child(license_plate).update({"exitTime": time_exit})
             vehicle_data["exitTime"] = time_exit
             set_vehicle_last_action(db,vehicle_data,"exit")
@@ -243,6 +229,7 @@ class VehicleService:
         except Exception as e:
             print(f"Vehicle exit error: {e}")
             return False
+
     @staticmethod   
     def handle_vehicle_enter(db,vehicle_data):
         print("vehicle_data: ",vehicle_data)
@@ -253,6 +240,7 @@ class VehicleService:
         except Exception as e:
             print(f"Vehicle enter error: {e}")
             return False
+
     @staticmethod
     def handle_vehicle_conflict(db,vehicle_data):
         try:
@@ -269,7 +257,6 @@ class VehicleService:
             # Log current state before changes
             log_sqlite_data(vehicle_data, action)
             
-          
             if action == "enter":
                 try:
                     # SQLite operations
@@ -281,7 +268,7 @@ class VehicleService:
 
                     session = ParkingSession(
                         vehicle_id=vehicle.id,
-                        checkin_time=datetime.utcnow(),
+                        checkin_time=get_vietnam_time(),
                         rfid_code=vehicle_data.get("rfid"),
                         image_src=vehicle_data["imageSrc"]
                     )
@@ -311,7 +298,7 @@ class VehicleService:
                     ).first()
 
                     if active_session:
-                        active_session.checkout_time = datetime.utcnow()
+                        active_session.checkout_time = get_vietnam_time()
                         
                         # Get price from Firebase
                         price_data = db.child("price").get()
@@ -325,7 +312,7 @@ class VehicleService:
                             session_id=active_session.id,
                             amount=fee,
                             payment_method='cash',
-                            paid_at=datetime.utcnow()
+                            paid_at=get_vietnam_time()
                         )
                         sqldb.session.add(transaction)
                         sqldb.session.commit()
@@ -379,8 +366,8 @@ class VehicleService:
                 sync_results['errors'].append(f"Error clearing Firebase data: {str(e)}")
                 return sync_results
 
-            # Get today's date
-            today = datetime.utcnow().date()
+            # Get today's date in Vietnam timezone
+            today = get_vietnam_time().date()
 
             # Get all active sessions from today
             active_sessions = ParkingSession.query.filter(
@@ -398,7 +385,7 @@ class VehicleService:
                     # Prepare vehicle data for Firebase
                     vehicle_data = {
                         'licensePlate': vehicle.plate_number,
-                        'entryTime': session.checkin_time.isoformat(),
+                        'entryTime': session.checkin_time.astimezone(VIETNAM_TZ).isoformat(),
                         'imageSrc': session.image_src,
                         'rfid': session.rfid_code
                     }

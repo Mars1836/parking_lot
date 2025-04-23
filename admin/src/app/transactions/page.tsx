@@ -29,7 +29,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useServerUrl } from "@/app/context/ServerUrlContext";
@@ -45,7 +45,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { db, onValue, ref } from "@/app/lib/firebase";
-import { formatVietnamTime } from "@/app/lib/format";
+
 interface Transaction {
   id: number;
   session_id: number;
@@ -126,22 +126,34 @@ export default function TransactionsPage() {
       const params = new URLSearchParams();
 
       // Xử lý thời gian theo timeRange
-
-      let startDate = date;
-      let endDate = date;
+      let startDate = new Date(date);
+      let endDate = new Date(date);
 
       switch (timeRange) {
         case "week":
-          startDate = new Date(date.getDate() - 7);
-          endDate = date;
+          // Lấy ngày đầu tuần (thứ 2)
+          const day = date.getDay();
+          const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+          startDate = new Date(date.setDate(diff));
+          startDate.setHours(0, 0, 0, 0);
+
+          // Lấy ngày cuối tuần (chủ nhật)
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case "month":
+          // Lấy ngày đầu tháng
           startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+          startDate.setHours(0, 0, 0, 0);
+
+          // Lấy ngày cuối tháng
           endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+          endDate.setHours(23, 59, 59, 999);
           break;
         default: // day
-          startDate = date;
-          endDate = date;
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
       }
 
       params.append("start_date", format(startDate, "yyyy-MM-dd"));
@@ -254,6 +266,17 @@ export default function TransactionsPage() {
     (sum, transaction) => sum + transaction.amount,
     0
   );
+
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return "—";
+    try {
+      const date = parseISO(dateString);
+      return format(date, "dd/MM/yyyy HH:mm:ss");
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return dateString;
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -463,7 +486,7 @@ export default function TransactionsPage() {
                       <TableCell>{transaction.plate_number}</TableCell>
                       <TableCell>${transaction.amount.toFixed(2)}</TableCell>
                       <TableCell>
-                        {formatVietnamTime(new Date(transaction.paid_at))}
+                        {formatDateTime(transaction.paid_at)}
                       </TableCell>
                       <TableCell>{transaction.payment_method}</TableCell>
                     </TableRow>

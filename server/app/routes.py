@@ -8,9 +8,14 @@ from .utils.index import store_image
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import UserDB
 from datetime import datetime, timedelta
+import pytz
 from sqlalchemy import func
-
+from .service.vehicle import get_vietnam_time
 routes = Blueprint('main', __name__)
+
+# Define Vietnam timezone
+VIETNAM_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
+
 @routes.route('/test-connection', methods=['GET'])
 def test_connection():
     try:
@@ -126,7 +131,7 @@ def simulate_exit_vehicle():
                 session_id=active_session.id,
                 amount=fee,
                 payment_method='cash',
-                paid_at=datetime.utcnow()
+                paid_at=datetime.now().isoformat()
             )
             sqldb.session.add(transaction)
             sqldb.session.commit()
@@ -325,20 +330,40 @@ def get_vehicles_summary():
             # Get total parking count
             total_visits = len(v.parking_sessions)
             
-            # Get last session
+            # Get last session with checkout_time
             last_session = ParkingSession.query.filter_by(vehicle_id=v.id)\
-                .order_by(ParkingSession.checkin_time.desc()).first()
+                .filter(ParkingSession.checkout_time.isnot(None))\
+                .order_by(ParkingSession.checkout_time.desc()).first()
             
             # Calculate time since last entry
             time_since = None
-            if last_session:
-                time_diff = datetime.utcnow() - last_session.checkin_time
+            if last_session and last_session.checkout_time:
+                # Get current time in Vietnam timezone and remove timezone info
+                now = get_vietnam_time().replace(tzinfo=None)
+                
+                # Calculate time difference
+                time_diff = now - last_session.checkout_time
+                
+                # Format time difference
                 if time_diff.days > 0:
-                    time_since = f"{time_diff.days} days ago"
-                elif time_diff.seconds > 3600:
-                    time_since = f"{time_diff.seconds // 3600} hours ago"
+                    if time_diff.days == 1:
+                        time_since = "1 day ago"
+                    else:
+                        time_since = f"{time_diff.days} days ago"
+                elif time_diff.seconds >= 3600:
+                    hours = time_diff.seconds // 3600
+                    if hours == 1:
+                        time_since = "1 hour ago"
+                    else:
+                        time_since = f"{hours} hours ago"
+                elif time_diff.seconds >= 60:
+                    minutes = time_diff.seconds // 60
+                    if minutes == 1:
+                        time_since = "1 minute ago"
+                    else:
+                        time_since = f"{minutes} minutes ago"
                 else:
-                    time_since = f"{time_diff.seconds // 60} minutes ago"
+                    time_since = "Just now"
             
             # Check if currently parked
             status = "in" if last_session and not last_session.checkout_time else "out"
@@ -347,7 +372,7 @@ def get_vehicles_summary():
                 'id': f"V{v.id:03d}",
                 'plate_number': v.plate_number,
                 'parking_count': total_visits,
-                'last_entry': last_session.checkin_time.isoformat() if last_session else None,
+                'last_entry': last_session.checkout_time.isoformat() if last_session and last_session.checkout_time else None,
                 'time_since': time_since,
                 'status': status
             })
@@ -373,8 +398,8 @@ def get_vehicle_history(vehicle_id):
             
             result.append({
                 'id': f"PS{vehicle_id:03d}{s.id}",
-                'entry_time': s.checkin_time.isoformat(),
-                'exit_time': s.checkout_time.isoformat() if s.checkout_time else None,
+                'entry_time': s.checkin_time,
+                'exit_time': s.checkout_time if s.checkout_time else None,
                 'duration': duration or "Current session",
             })
         
