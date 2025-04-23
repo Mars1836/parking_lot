@@ -96,10 +96,47 @@ def simulate_add_vehicle():
         }), 500
 @routes.route('/vehicle/exit', methods=['POST'])
 def simulate_exit_vehicle():
-    data = request.json
+    vehicle_data = request.json
     db = current_app.config['DB']
-    VehicleService.handle_vehicle_exit(db,data['licensePlate'])
-    return jsonify({"message": "Vehicle exited successfully"}), 200
+    sqldb = current_app.config['SQLDB']
+    try:
+        # Tìm phương tiện dựa vào biển số
+        vehicle = VehicleDB.query.filter_by(plate_number=vehicle_data["licensePlate"]).first()
+        if not vehicle:
+            return jsonify({"message": "Vehicle not found"}), 404
+
+        # Tìm session còn đang active
+        active_session = ParkingSession.query.filter_by(
+            vehicle_id=vehicle.id,
+            checkout_time=None
+        ).first()
+
+        if active_session:
+            active_session.checkout_time = datetime.utcnow()
+
+            # Lấy giá tiền từ Firebase
+            price_data = db.child("price").get()
+            fee = 1.0  # Mặc định
+            if price_data.val() is not None:
+                fee = float(price_data.val())
+
+            active_session.fee = fee
+
+            transaction = Transaction(
+                session_id=active_session.id,
+                amount=fee,
+                payment_method='cash',
+                paid_at=datetime.utcnow()
+            )
+            sqldb.session.add(transaction)
+            sqldb.session.commit()
+        else:
+            return jsonify({"message": "No active session found"}), 400
+        # Gọi service và ghi log
+        VehicleService.handle_vehicle_exit(db, vehicle_data["licensePlate"])
+        return jsonify({"message": "Vehicle exited successfully"}), 200
+    except Exception as e:
+        return jsonify({"message": "Internal server error"}), 500
 
 @routes.route('/toggle-door1', methods=['POST'])
 def toggle_door1():
