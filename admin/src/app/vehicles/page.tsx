@@ -29,6 +29,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useServerUrl } from "@/app/context/ServerUrlContext";
+import { formatVietnamTime } from "@/app/lib/format";
+
 interface Vehicle {
   id: string;
   plate_number: string;
@@ -264,8 +266,12 @@ export default function VehiclesPage() {
                 {parkingHistory.map((session) => (
                   <TableRow key={session.id}>
                     <TableCell className="font-medium">{session.id}</TableCell>
-                    <TableCell>{session.entry_time}</TableCell>
-                    <TableCell>{session.exit_time || "—"}</TableCell>
+                    <TableCell>
+                      {formatVietnamTime(session.entry_time)}
+                    </TableCell>
+                    <TableCell>
+                      {formatVietnamTime(session.exit_time!) || "—"}
+                    </TableCell>
                     <TableCell>{session.duration}</TableCell>
                     <TableCell>{session.fee}</TableCell>
                   </TableRow>
