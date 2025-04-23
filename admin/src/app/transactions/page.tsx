@@ -29,6 +29,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useServerUrl } from "@/app/context/ServerUrlContext";
@@ -143,8 +144,8 @@ export default function TransactionsPage() {
           endDate = date;
       }
 
-      params.append("start_date", formatVietnamTime(startDate));
-      params.append("end_date", formatVietnamTime(endDate));
+      params.append("start_date", format(startDate, "yyyy-MM-dd"));
+      params.append("end_date", format(endDate, "yyyy-MM-dd"));
 
       console.log("Fetching transactions from:", `${url}?${params.toString()}`);
       const response = await fetch(`${url}?${params.toString()}`);
@@ -241,7 +242,7 @@ export default function TransactionsPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `transactions_${new Date()}.csv`;
+    a.download = `transactions_${format(new Date(), "yyyy-MM-dd")}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -350,7 +351,7 @@ export default function TransactionsPage() {
                   className="justify-start text-left font-normal"
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? formatVietnamTime(date) : "Pick a date"}
+                  {date ? format(date, "PPP") : "Pick a date"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
