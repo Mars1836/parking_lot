@@ -21,7 +21,7 @@ interface Vehicle {
 }
 
 // Mock data - in a real application, this would come from an API
-const AVAILABLE_SPACES = 10;
+const AVAILABLE_SPACES = 20;
 
 export default function ParkingDashboard() {
   const [parkingVehicles, setParkingVehicles] = useState<Vehicle[]>([]);
